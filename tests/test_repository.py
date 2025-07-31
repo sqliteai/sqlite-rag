@@ -1,0 +1,95 @@
+import sqlite3
+import tempfile
+
+from h11 import Data
+
+from database import Database
+from models.chunk import Chunk
+from models.document import Document
+from repository import Repository
+from settings import Settings
+
+
+class TestRepository:
+    def test_db_initialization(self, db_conn):
+        conn, settings = db_conn
+
+        Repository(conn, settings)
+
+        # Check if the tables exist
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='documents'"
+        )
+        assert cursor.fetchone() is not None, "Documents table was not created."
+
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='chunks'"
+        )
+        assert cursor.fetchone() is not None, "Chunks table was not created."
+
+    def test_add_document_without_chunks(self, db_conn):
+        conn, settings = db_conn
+
+        repo = Repository(conn, settings)
+
+        doc_id = repo.add_document(
+            Document(
+                content="This is a test document content.",
+                uri="test_doc.txt",
+                metadata={"author": "test"},
+            )
+        )
+
+        # Verify the document was added
+        conn = sqlite3.connect(settings.db_path)
+        cursor = conn.execute(
+            "SELECT content, uri, metadata FROM documents WHERE id=?", (doc_id,)
+        )
+        row = cursor.fetchone()
+
+        assert row is not None, "Document was not added to the database."
+        assert row[0] == "This is a test document content."
+        assert row[1] == "test_doc.txt"
+        assert row[2] == '{"author": "test"}'
+
+    def test_add_document_with_chunks(self, db_conn):
+        conn, settings = db_conn
+
+        repo = Repository(conn, settings)
+
+        doc = Document(
+            content="This is a test document with chunks.",
+            uri="test_doc_with_chunks.txt",
+            metadata={"author": "test"},
+        )
+
+        doc.chunks = [
+            Chunk(content="Chunk 1 content", embedding=b"\x00" * 384),
+            Chunk(content="Chunk 2 content", embedding=b"\x00" * 384),
+        ]
+
+        doc_id = repo.add_document(doc)
+
+        # Verify the document and chunks were added
+        conn = sqlite3.connect(settings.db_path)
+        cursor = conn.execute(
+            "SELECT content, uri, metadata FROM documents WHERE id=?", (doc_id,)
+        )
+        row = cursor.fetchone()
+
+        assert row is not None, "Document was not added to the database."
+        assert row[0] == "This is a test document with chunks."
+        assert row[1] == "test_doc_with_chunks.txt"
+        assert row[2] == '{"author": "test"}'
+
+        cursor.execute(
+            "SELECT content, embedding FROM chunks WHERE document_id=?", (doc_id,)
+        )
+        chunk_rows = cursor.fetchall()
+
+        assert len(chunk_rows) == 2, "Chunks were not added to the database."
+        assert chunk_rows[0][0] == "Chunk 1 content"
+        assert chunk_rows[0][1] == b"\x00" * 384
+        assert chunk_rows[1][0] == "Chunk 2 content"
+        assert chunk_rows[1][1] == b"\x00" * 384

@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sqlite-rag"
+version = "0.1.0"
+description = "Hybird search with SQLite AI and SQLite Vector"
+authors = [{name = "User"}]
+requires-python = ">=3.10"
+dependencies = [
+    "typer",
+    "huggingface_hub",
+    "markitdown[all]"
+]
+
+# .. or [dependency-groups] ?
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "flake8",
+]
+
+[project.scripts]
+sqlite-rag = "src.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.isort]
+# make the tools compatible to each other
+profile = "black"
+
+[tool.pytest.ini_options]
+log_level = "INFO"
+testpaths = [
+    "tests"
+]
+pythonpath = [
+    "src"
+]
