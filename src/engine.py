@@ -13,7 +13,8 @@ class Engine:
     def load_model(self):
         """Load the model model from the specified path
         or download it from Hugging Face if not found."""
-        model_path = self.settings.model_path_or_name
+        pass
+        # model_path = self.settings.model_path_or_name
         # if not Path(self.settings.model_path_or_name).exists():
         #     # check if exists locally or try to download it from Hugging Face
         #     model_path = hf_hub_download(
@@ -22,6 +23,8 @@ class Engine:
         #         cache_dir="./models"
         #     )
 
-        self.repository.load_model(model_path)
+        self._conn.execute(
+            f"SELECT llm_model_load('{self.settings.model_path_or_name}', '{self.settings.model_config}');"
+        )
 
     

@@ -43,6 +43,7 @@ class SQLiteRag:
         if not Path(path).exists():
             raise FileNotFoundError(f"File {path} does not exist.")
 
+        # TODO: check the file extension
         content = FileReader.parse_file(Path(path))
         # TODO: include metadata extraction and mdx options (see our docsearch)
         document = Document(content=content, uri=path)

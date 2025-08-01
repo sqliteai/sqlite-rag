@@ -18,3 +18,10 @@ def db_conn():
     yield conn, settings
 
     conn.close()
+
+
+@pytest.fixture
+def db_settings() -> Settings:
+    with tempfile.NamedTemporaryFile(suffix=".db") as tmp_db:
+        settings = Settings(model_path_or_name="all-MiniLM-L6-v2", db_path=tmp_db.name)
+    return settings

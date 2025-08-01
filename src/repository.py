@@ -3,7 +3,6 @@ from pathlib import Path
 import sqlite3
 from uuid import uuid4
 
-from database import Database
 from models.document import Document
 from settings import Settings
 

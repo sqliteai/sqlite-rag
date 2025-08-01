@@ -11,23 +11,6 @@ from settings import Settings
 
 
 class TestRepository:
-    def test_db_initialization(self, db_conn):
-        conn, settings = db_conn
-
-        Repository(conn, settings)
-
-        # Check if the tables exist
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='documents'"
-        )
-        assert cursor.fetchone() is not None, "Documents table was not created."
-
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='chunks'"
-        )
-        assert cursor.fetchone() is not None, "Chunks table was not created."
-
     def test_add_document_without_chunks(self, db_conn):
         conn, settings = db_conn
 

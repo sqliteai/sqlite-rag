@@ -7,3 +7,6 @@ class Settings:
         self.vector_type = "FLOAT32"  # Default vector type for sqlite-vector
 
         self.model_config = "n_ctx=0"  # See: https://github.com/sqliteai/sqlite-ai/blob/e172b9c9b9d76435be635d1e02c1e88b3681cc6e/src/sqlite-ai.c#L51-L57
+        
+        self.chunk_size = 1000  # Maximum tokens per chunk
+        self.chunk_overlap = 200  # Token overlap between chunks
