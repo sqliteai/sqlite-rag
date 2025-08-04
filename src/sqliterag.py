@@ -1,3 +1,4 @@
+import glob
 from pathlib import Path
 import sqlite3
 from typing import Optional
@@ -36,18 +37,62 @@ class SQLiteRag:
 
         self.ready = True
 
-    def add(self, path: str):
+    def add(self, path: str, recursively: bool = False):
         """Add the file content into the database"""
         self._ensure_initialized()
 
         if not Path(path).exists():
-            raise FileNotFoundError(f"File {path} does not exist.")
+            raise FileNotFoundError(f"{path} does not exist.")
 
-        # TODO: check the file extension
-        content = FileReader.parse_file(Path(path))
-        # TODO: include metadata extraction and mdx options (see our docsearch)
-        document = Document(content=content, uri=path)
+        files_to_process: list[Path] = []
+        path_obj = Path(path)
+
+        if path_obj.is_file():
+            files_to_process.append(path_obj)
+        elif path_obj.is_dir():
+            if recursively:
+                files_to_process = list(path_obj.rglob("*"))
+            else:
+                files_to_process = list(path_obj.glob("*"))
+
+            files_to_process = [
+                f
+                for f in files_to_process
+                if f.is_file() and FileReader.is_supported(f)
+            ]
+
+        for file_path in files_to_process:
+            # TODO: check the file extension
+            content = FileReader.parse_file(file_path)
+            # TODO: include metadata extraction and mdx options (see our docsearch)
+            document = Document(content=content, uri=str(file_path))
+            chunks = self._chunker.chunk(document.content)
+            chunks = self._engine.generate_embedding(chunks)
+            document.chunks = chunks
+
+            self._repository.add_document(document)
+
+        if self.settings.quantize_scan:
+            self._engine.quantize()
+
+    def add_text(
+        self, text: str, uri: Optional[str] = None, metadata: dict = {}
+    ) -> None:
+        """Add a text content into the database"""
+        self._ensure_initialized()
+
+        document = Document(content=text, uri=uri, metadata=metadata)
         chunks = self._chunker.chunk(document.content)
+        chunks = self._engine.generate_embedding(chunks)
         document.chunks = chunks
 
         self._repository.add_document(document)
+
+        if self.settings.quantize_scan:
+            self._engine.quantize()
+
+    def list_documents(self) -> list[Document]:
+        """List all documents in the database"""
+        self._ensure_initialized()
+
+        return self._repository.list_documents()

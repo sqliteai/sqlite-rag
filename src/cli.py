@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+from pathlib import Path
 import shlex
 import sys
+from typing import Optional
 
 import typer
 
@@ -25,18 +27,22 @@ cli = CLI(app)
 
 
 @app.command()
-def add(path: str):
+def add(
+    path: str = typer.Argument(..., help="File or directory path to add"),
+    recursive: bool = typer.Option(
+        False, "-r", "--recursive", help="Recursively add all files in directories"
+    ),
+):
     """Add a file path to the database"""
     rag = SQLiteRag()
-    rag.add(path)
+    rag.add(path, recursively=recursive)
 
 
 @app.command()
-def add_text(text: str):
+def add_text(text: str, uri: Optional[str] = None, metadata: dict = {}):
     """Add a text to the database"""
-    # rag = SQLiteRag()
-    # rag.add_text(text)
-    pass
+    rag = SQLiteRag()
+    rag.add_text(text, uri=uri, metadata=metadata)
 
 
 @app.command("list")

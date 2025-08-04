@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 import sqlite3
 from uuid import uuid4
 
@@ -11,16 +10,6 @@ class Repository:
     def __init__(self, conn: sqlite3.Connection, settings: Settings):
         self._conn = conn
         self.settings = settings
-
-    def load_model(self, path: str):
-        """Load the LLMA model"""
-        model_path = Path(path)
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model file not found at {model_path}")
-
-        self._conn.execute(
-            f"SELECT llm_model_load('{model_path}', '{self.settings.model_config}');"
-        )
 
     def add_document(self, document: Document) -> str:
         """Add a text content to the database"""
@@ -46,5 +35,25 @@ class Repository:
             )
 
         self._conn.commit()
-        
+
         return document_id
+
+    def list_documents(self) -> list[Document]:
+        """List all documents in the database"""
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT id, content, uri, metadata FROM documents")
+        rows = cursor.fetchall()
+
+        documents = []
+        for row in rows:
+            doc_id, content, uri, metadata = row
+            documents.append(
+                Document(
+                    id=doc_id,
+                    content=content,
+                    uri=uri,
+                    metadata=json.loads(metadata),
+                )
+            )
+
+        return documents

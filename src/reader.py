@@ -40,6 +40,11 @@ class FileReader:
     ]
 
     @staticmethod
+    def is_supported(path: Path) -> bool:
+        """Check if the file extension is supported"""
+        return path.suffix.lower() in FileReader.extensions
+
+    @staticmethod
     def parse_file(path: Path) -> str:
         try:
             reader = MarkItDown()

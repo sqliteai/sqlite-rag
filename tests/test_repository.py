@@ -76,3 +76,31 @@ class TestRepository:
         assert chunk_rows[0][1] == b"\x00" * 384
         assert chunk_rows[1][0] == "Chunk 2 content"
         assert chunk_rows[1][1] == b"\x00" * 384
+
+    def test_list_documents(self, db_conn):
+        conn, settings = db_conn
+
+        repo = Repository(conn, settings)
+
+        doc1 = Document(
+            content="Document 1 content.", uri="doc1.txt", metadata={"author": "test1"}
+        )
+        doc2 = Document(
+            content="Document 2 content.", uri="doc2.txt", metadata={"author": "test2"}
+        )
+
+        repo.add_document(doc1)
+        repo.add_document(doc2)
+
+        documents = repo.list_documents()
+
+        assert len(documents) == 2
+        assert documents[0].id is not None
+        assert documents[0].uri == "doc1.txt"
+        assert documents[0].content == "Document 1 content."
+        assert documents[0].metadata == {"author": "test1"}
+
+        assert documents[1].id is not None
+        assert documents[1].content == "Document 2 content."
+        assert documents[1].uri == "doc2.txt"
+        assert documents[1].metadata == {"author": "test2"}
