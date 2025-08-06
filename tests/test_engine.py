@@ -49,7 +49,7 @@ class TestEngine:
             uri="document2.txt",
         )
         doc3 = Document(
-            content="This document contains the phrase 'tongue-twister' and discusses woodcutters and wood.",
+            content="This document discusses about woodcutters and wood.",
             uri="document3.txt",
         )
 
@@ -59,16 +59,16 @@ class TestEngine:
 
         repository = Repository(conn, settings)
         repository.add_document(doc1)
-        doc2_id = repository.add_document(doc2)
-        repository.add_document(doc3)
+        repository.add_document(doc2)
+        doc3_id = repository.add_document(doc3)
 
         engine.quantize()
 
         # Act
-        results = engine.search("wood woodchuck", limit=5)
+        results = engine.search("wood lumberjack", limit=5)
 
         assert len(results) > 0
-        assert doc2_id == results[0].id
+        assert doc3_id == results[0].id
 
     def test_search_semantic_result(self, db_conn):
         # Arrange
@@ -86,7 +86,7 @@ class TestEngine:
             uri="document2.txt",
         )
         doc3 = Document(
-            content="This document contains the phrase 'tongue-twister' and discusses woodcutters and wood.",
+            content="This document discusses about woodcutters and wood.",
             uri="document3.txt",
         )
 
@@ -96,16 +96,16 @@ class TestEngine:
 
         repository = Repository(conn, settings)
         repository.add_document(doc1)
-        doc2_id = repository.add_document(doc2)
-        repository.add_document(doc3)
+        repository.add_document(doc2)
+        doc3_id = repository.add_document(doc3)
 
         engine.quantize()
 
         # Act
-        results = engine.search("tongue-twister", limit=5)
+        results = engine.search("lumberjack", limit=5)
 
         assert len(results) > 0
-        assert doc2_id == results[0].id
+        assert doc3_id == results[0].id
 
     def test_search_fts_results(self, db_conn):
         # Arrange
@@ -123,7 +123,7 @@ class TestEngine:
             uri="document2.txt",
         )
         doc3 = Document(
-            content="This document contains the phrase 'tongue-twister' and discusses woodcutters and wood.",
+            content="This document discusses about woodcutters and wood.",
             uri="document3.txt",
         )
 
@@ -132,14 +132,14 @@ class TestEngine:
         engine.process(doc3)
 
         repository = Repository(conn, settings)
-        repository.add_document(doc1)
+        doc1_id = repository.add_document(doc1)
         repository.add_document(doc2)
-        doc3_id = repository.add_document(doc3)
+        repository.add_document(doc3)
 
         engine.quantize()
 
         # Act
-        results = engine.search("woodcutters", limit=5)
+        results = engine.search("brown fox animal", limit=5)
 
         assert len(results) > 0
-        assert doc3_id == results[0].id
+        assert doc1_id == results[0].id

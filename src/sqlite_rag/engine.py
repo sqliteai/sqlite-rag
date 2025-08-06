@@ -46,7 +46,7 @@ class Engine:
         cursor = self._conn.cursor()
 
         for chunk in chunks:
-            cursor.execute("SELECT llm_embed_generate(?, 'json_output=0')", (chunk.content,))
+            cursor.execute("SELECT llm_embed_generate(?)", (chunk.content,))
             result = cursor.fetchone()
 
             if result is None:

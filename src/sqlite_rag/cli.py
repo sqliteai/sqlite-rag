@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import shlex
 import sys
-from pathlib import Path
 from typing import Optional
 
 import typer
@@ -75,7 +74,10 @@ def list_documents():
 
 
 @app.command()
-def remove(identifier: str):
+def remove(
+    identifier: str,
+    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt")
+):
     """Remove document by path or UUID"""
     rag = SQLiteRag()
     
@@ -93,11 +95,12 @@ def remove(identifier: str):
     typer.echo(f"Content preview: {document.content[:200]}{'...' if len(document.content) > 200 else ''}")
     typer.echo()
     
-    # Ask for confirmation
-    confirm = typer.confirm("Are you sure you want to delete this document?")
-    if not confirm:
-        typer.echo("Cancelled.")
-        return
+    # Ask for confirmation unless -y flag is used
+    if not yes:
+        confirm = typer.confirm("Are you sure you want to delete this document?")
+        if not confirm:
+            typer.echo("Cancelled.")
+            return
     
     # Remove the document
     success = rag.remove_document(identifier)
