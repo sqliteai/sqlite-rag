@@ -77,7 +77,35 @@ def list_documents():
 @app.command()
 def remove(identifier: str):
     """Remove document by path or UUID"""
-    pass
+    rag = SQLiteRag()
+    
+    # Find the document first
+    document = rag.find_document(identifier)
+    if not document:
+        typer.echo(f"Document not found: {identifier}")
+        raise typer.Exit(1)
+    
+    # Show document details
+    typer.echo(f"Found document:")
+    typer.echo(f"ID: {document.id}")
+    typer.echo(f"URI: {document.uri or 'N/A'}")
+    typer.echo(f"Created: {document.created_at.strftime('%Y-%m-%d %H:%M:%S') if document.created_at else 'N/A'}")
+    typer.echo(f"Content preview: {document.content[:200]}{'...' if len(document.content) > 200 else ''}")
+    typer.echo()
+    
+    # Ask for confirmation
+    confirm = typer.confirm("Are you sure you want to delete this document?")
+    if not confirm:
+        typer.echo("Cancelled.")
+        return
+    
+    # Remove the document
+    success = rag.remove_document(identifier)
+    if success:
+        typer.echo("Document removed successfully.")
+    else:
+        typer.echo("Failed to remove document.")
+        raise typer.Exit(1)
 
 
 @app.command()

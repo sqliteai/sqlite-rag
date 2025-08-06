@@ -113,3 +113,96 @@ class TestRepository:
         documents = repo.list_documents()
 
         assert len(documents) == 0
+
+    def test_find_document_by_id_or_uri_by_id(self, db_conn):
+        conn, settings = db_conn
+        repo = Repository(conn, settings)
+
+        # Add a document
+        doc = Document(
+            content="Test document content.", 
+            uri="test.txt", 
+            metadata={"author": "test"}
+        )
+        doc_id = repo.add_document(doc)
+
+        # Find by ID
+        found_doc = repo.find_document_by_id_or_uri(doc_id)
+
+        assert found_doc is not None
+        assert found_doc.id == doc_id
+        assert found_doc.content == "Test document content."
+        assert found_doc.uri == "test.txt"
+        assert found_doc.metadata == {"author": "test"}
+
+    def test_find_document_by_id_or_uri_by_uri(self, db_conn):
+        conn, settings = db_conn
+        repo = Repository(conn, settings)
+
+        # Add a document
+        doc = Document(
+            content="Test document content.", 
+            uri="test.txt", 
+            metadata={"author": "test"}
+        )
+        repo.add_document(doc)
+
+        # Find by URI
+        found_doc = repo.find_document_by_id_or_uri("test.txt")
+
+        assert found_doc is not None
+        assert found_doc.content == "Test document content."
+        assert found_doc.uri == "test.txt"
+        assert found_doc.metadata == {"author": "test"}
+
+    def test_find_document_by_id_or_uri_not_found(self, db_conn):
+        conn, settings = db_conn
+        repo = Repository(conn, settings)
+
+        # Try to find non-existent document
+        found_doc = repo.find_document_by_id_or_uri("nonexistent")
+
+        assert found_doc is None
+
+    def test_remove_document_success(self, db_conn):
+        conn, settings = db_conn
+        repo = Repository(conn, settings)
+
+        # Add a document with chunks
+        doc = Document(
+            content="Test document content.", 
+            uri="test.txt", 
+            metadata={"author": "test"}
+        )
+        doc.chunks = [
+            Chunk(content="Chunk 1", embedding=b"\x00" * 384),
+            Chunk(content="Chunk 2", embedding=b"\x00" * 384),
+        ]
+        doc_id = repo.add_document(doc)
+
+        # Verify document and chunks exist
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM documents WHERE id = ?", (doc_id,))
+        assert cursor.fetchone()[0] == 1
+        cursor.execute("SELECT COUNT(*) FROM chunks WHERE document_id = ?", (doc_id,))
+        assert cursor.fetchone()[0] == 2
+
+        # Remove document
+        success = repo.remove_document(doc_id)
+
+        assert success is True
+
+        # Verify document and chunks are removed
+        cursor.execute("SELECT COUNT(*) FROM documents WHERE id = ?", (doc_id,))
+        assert cursor.fetchone()[0] == 0
+        cursor.execute("SELECT COUNT(*) FROM chunks WHERE document_id = ?", (doc_id,))
+        assert cursor.fetchone()[0] == 0
+
+    def test_remove_document_not_found(self, db_conn):
+        conn, settings = db_conn
+        repo = Repository(conn, settings)
+
+        # Try to remove non-existent document
+        success = repo.remove_document("nonexistent-id")
+
+        assert success is False

@@ -99,3 +99,115 @@ class TestSQLiteRag:
         assert len(documents) == 2
         assert documents[0].content == "Document 1 content."
         assert documents[1].content == "Document 2 content."
+
+    def test_find_document_by_id(self, db_settings):
+        rag = SQLiteRag(db_settings)
+        
+        rag.add_text("Test document content.", uri="test.txt", metadata={"author": "test"})
+        documents = rag.list_documents()
+        doc_id = documents[0].id
+        
+        # Find by ID
+        assert doc_id is not None
+        found_doc = rag.find_document(doc_id)
+        
+        assert found_doc is not None
+        assert found_doc.id == doc_id
+        assert found_doc.content == "Test document content."
+        assert found_doc.uri == "test.txt"
+        assert found_doc.metadata == {"author": "test"}
+
+    def test_find_document_by_uri(self, db_settings):
+        rag = SQLiteRag(db_settings)
+        
+        rag.add_text("Test document content.", uri="test.txt", metadata={"author": "test"})
+        
+        # Find by URI
+        found_doc = rag.find_document("test.txt")
+        
+        assert found_doc is not None
+        assert found_doc.content == "Test document content."
+        assert found_doc.uri == "test.txt"
+        assert found_doc.metadata == {"author": "test"}
+
+    def test_find_document_not_found(self, db_settings):
+        rag = SQLiteRag(db_settings)
+        
+        found_doc = rag.find_document("nonexistent")
+        
+        assert found_doc is None
+
+    def test_remove_document_by_id(self, db_settings):
+        rag = SQLiteRag(db_settings)
+        
+        rag.add_text("Test document content.", uri="test.txt", metadata={"author": "test"})
+        documents = rag.list_documents()
+        doc_id = documents[0].id
+        
+        # Verify document exists
+        assert len(documents) == 1
+        
+        # Remove by ID
+        assert doc_id is not None
+        success = rag.remove_document(doc_id)
+        
+        assert success is True
+        
+        # Verify document is removed
+        documents = rag.list_documents()
+        assert len(documents) == 0
+
+    def test_remove_document_by_uri(self, db_settings):
+        rag = SQLiteRag(db_settings)
+        
+        rag.add_text("Test document content.", uri="test.txt", metadata={"author": "test"})
+        
+        # Verify document exists
+        documents = rag.list_documents()
+        assert len(documents) == 1
+        
+        # Remove by URI
+        success = rag.remove_document("test.txt")
+        
+        assert success is True
+        
+        # Verify document is removed
+        documents = rag.list_documents()
+        assert len(documents) == 0
+
+    def test_remove_document_not_found(self, db_settings):
+        rag = SQLiteRag(db_settings)
+        
+        success = rag.remove_document("nonexistent")
+        
+        assert success is False
+
+    def test_remove_document_with_chunks(self, db_settings):
+        rag = SQLiteRag(db_settings)
+        
+        # Add document that will create chunks
+        rag.add_text("This is a longer document that should create multiple chunks when processed by the chunker.", uri="test.txt")
+        
+        # Verify document and chunks exist
+        documents = rag.list_documents()
+        assert len(documents) == 1
+        doc_id = documents[0].id
+        
+        cursor = rag._conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM chunks WHERE document_id = ?", (doc_id,))
+        chunk_count = cursor.fetchone()[0]
+        assert chunk_count > 0
+        
+        # Remove document
+        assert doc_id is not None
+        success = rag.remove_document(doc_id)
+        
+        assert success is True
+        
+        # Verify document and chunks are removed
+        documents = rag.list_documents()
+        assert len(documents) == 0
+        
+        cursor.execute("SELECT COUNT(*) FROM chunks WHERE document_id = ?", (doc_id,))
+        chunk_count = cursor.fetchone()[0]
+        assert chunk_count == 0

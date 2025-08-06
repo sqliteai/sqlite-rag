@@ -57,3 +57,41 @@ class Repository:
             )
 
         return documents
+
+    def find_document_by_id_or_uri(self, identifier: str) -> Document | None:
+        """Find document by ID or URI"""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "SELECT id, content, uri, metadata, created_at FROM documents WHERE id = ? OR uri = ?", 
+            (identifier, identifier)
+        )
+        row = cursor.fetchone()
+        
+        if row:
+            doc_id, content, uri, metadata, created_at = row
+            return Document(
+                id=doc_id,
+                content=content,
+                uri=uri,
+                metadata=json.loads(metadata),
+                created_at=created_at,
+            )
+        return None
+
+    def remove_document(self, document_id: str) -> bool:
+        """Remove document and its chunks by document ID"""
+        cursor = self._conn.cursor()
+        
+        # Check if document exists
+        cursor.execute("SELECT COUNT(*) FROM documents WHERE id = ?", (document_id,))
+        if cursor.fetchone()[0] == 0:
+            return False
+        
+        # Remove chunks first (foreign key constraint)
+        cursor.execute("DELETE FROM chunks WHERE document_id = ?", (document_id,))
+        
+        # Remove document
+        cursor.execute("DELETE FROM documents WHERE id = ?", (document_id,))
+        
+        self._conn.commit()
+        return True

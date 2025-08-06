@@ -97,6 +97,22 @@ class SQLiteRag:
 
         return self._repository.list_documents()
 
+    def find_document(self, identifier: str) -> Document | None:
+        """Find document by ID or URI"""
+        self._ensure_initialized()
+        return self._repository.find_document_by_id_or_uri(identifier)
+
+    def remove_document(self, identifier: str) -> bool:
+        """Remove document by ID or URI"""
+        self._ensure_initialized()
+        
+        # First find the document to get its ID
+        document = self._repository.find_document_by_id_or_uri(identifier)
+        if not document:
+            return False
+        
+        return self._repository.remove_document(document.id or "")
+
     # def search(
     #     self, query: str, top_k: int = 10
     # ) -> list[Document]:

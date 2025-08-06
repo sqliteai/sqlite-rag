@@ -1,10 +1,10 @@
 import pytest
 
-from chunker import Chunker
-from engine import Engine
-from models.chunk import Chunk
-from models.document import Document
-from repository import Repository
+from sqlite_rag.chunker import Chunker
+from sqlite_rag.engine import Engine
+from sqlite_rag.models.chunk import Chunk
+from sqlite_rag.models.document import Document
+from sqlite_rag.repository import Repository
 
 
 @pytest.fixture
