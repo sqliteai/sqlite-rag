@@ -26,6 +26,18 @@ class TestSQLiteRag:
         chunk_count = cursor.fetchone()[0]
         assert chunk_count > 0
 
+    def test_add_unsupported_file_type(self, db_settings):
+        # Create a temporary file with an unsupported extension
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".unsupported", delete=False) as f:
+            f.write("This is a test document with unsupported file type.")
+
+        rag = SQLiteRag(db_settings)
+
+        # Attempt to add the unsupported file
+        processed = rag.add(f.name)
+
+        assert processed == 0
+
     def test_add_directory(self, db_settings):
         with tempfile.TemporaryDirectory() as temp_dir:
             file1 = Path(temp_dir) / "file1.txt"
@@ -34,12 +46,33 @@ class TestSQLiteRag:
             file1.write_text("This is the first test document.")
             file2.write_text("This is the second test document.")
 
-            db_settings.chunk_size = 100
-            db_settings.chunk_overlap = 10
-
             rag = SQLiteRag(db_settings)
 
             rag.add(temp_dir)
+
+            conn = rag._conn
+            cursor = conn.execute("SELECT COUNT(*) FROM documents")
+            doc_count = cursor.fetchone()[0]
+            assert doc_count == 2
+
+            cursor = conn.execute("SELECT COUNT(*) FROM chunks")
+            chunk_count = cursor.fetchone()[0]
+            assert chunk_count > 0
+
+    def test_add_directory_recursively(self, db_settings):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            sub_dir = Path(temp_dir) / "subdir"
+            sub_dir.mkdir()
+
+            file1 = Path(temp_dir) / "file1.txt"
+            file2 = sub_dir / "file2.txt"
+
+            file1.write_text("This is the first test document.")
+            file2.write_text("This is the second test document in a subdirectory.")
+
+            rag = SQLiteRag(db_settings)
+
+            rag.add(temp_dir, recursive=True)
 
             conn = rag._conn
             cursor = conn.execute("SELECT COUNT(*) FROM documents")
