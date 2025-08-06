@@ -14,5 +14,6 @@
                 "hbenl.vscode-test-explorer"
             ]
         }
-    }
+    },
+    "runArgs": ["--network=host"]
 }

@@ -1,19 +1,145 @@
+import pytest
+
+from chunker import Chunker
 from engine import Engine
 from models.chunk import Chunk
+from models.document import Document
+from repository import Repository
+
+
+@pytest.fixture
+def engine(db_conn):
+    conn, settings = db_conn
+
+    engine = Engine(conn, settings, chunker=Chunker(conn, settings))
+    engine.load_model()
+    engine.quantize()
+
+    return engine
 
 
 class TestEngine:
-    def test_generate_embedding(self, db_conn):
-        conn, settings = db_conn
-        engine = Engine(conn, settings)
-        engine.load_model()
-
-        # Create a sample chunk
+    def test_generate_embedding(self, engine):
         chunk = Chunk(content="This is a test chunk for embedding generation.")
 
-        # Generate embedding
         result_chunks = engine.generate_embedding([chunk])
 
         assert len(result_chunks) == 1
         assert result_chunks[0].embedding is not None
         assert isinstance(result_chunks[0].embedding, bytes)
+
+    def test_search_with_empty_database(self, engine):
+        results = engine.search("nonexistent query", limit=5)
+
+        assert len(results) == 0
+
+    def test_search_with_semantic_and_fts(self, db_conn):
+        # Arrange
+        conn, settings = db_conn
+
+        engine = Engine(conn, settings, Chunker(conn, settings))
+        engine.load_model()
+
+        doc1 = Document(
+            content="The quick brown fox jumps over the lazy dog.",
+            uri="document1.txt",
+        )
+        doc2 = Document(
+            content="How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
+            uri="document2.txt",
+        )
+        doc3 = Document(
+            content="This document contains the phrase 'tongue-twister' and discusses woodcutters and wood.",
+            uri="document3.txt",
+        )
+
+        engine.process(doc1)
+        engine.process(doc2)
+        engine.process(doc3)
+
+        repository = Repository(conn, settings)
+        repository.add_document(doc1)
+        doc2_id = repository.add_document(doc2)
+        repository.add_document(doc3)
+
+        engine.quantize()
+
+        # Act
+        results = engine.search("wood woodchuck", limit=5)
+
+        assert len(results) > 0
+        assert doc2_id == results[0].id
+
+    def test_search_semantic_result(self, db_conn):
+        # Arrange
+        conn, settings = db_conn
+
+        engine = Engine(conn, settings, Chunker(conn, settings))
+        engine.load_model()
+
+        doc1 = Document(
+            content="The quick brown fox jumps over the lazy dog.",
+            uri="document1.txt",
+        )
+        doc2 = Document(
+            content="How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
+            uri="document2.txt",
+        )
+        doc3 = Document(
+            content="This document contains the phrase 'tongue-twister' and discusses woodcutters and wood.",
+            uri="document3.txt",
+        )
+
+        engine.process(doc1)
+        engine.process(doc2)
+        engine.process(doc3)
+
+        repository = Repository(conn, settings)
+        repository.add_document(doc1)
+        doc2_id = repository.add_document(doc2)
+        repository.add_document(doc3)
+
+        engine.quantize()
+
+        # Act
+        results = engine.search("tongue-twister", limit=5)
+
+        assert len(results) > 0
+        assert doc2_id == results[0].id
+
+    def test_search_fts_results(self, db_conn):
+        # Arrange
+        conn, settings = db_conn
+
+        engine = Engine(conn, settings, Chunker(conn, settings))
+        engine.load_model()
+
+        doc1 = Document(
+            content="The quick brown fox jumps over the lazy dog.",
+            uri="document1.txt",
+        )
+        doc2 = Document(
+            content="How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
+            uri="document2.txt",
+        )
+        doc3 = Document(
+            content="This document contains the phrase 'tongue-twister' and discusses woodcutters and wood.",
+            uri="document3.txt",
+        )
+
+        engine.process(doc1)
+        engine.process(doc2)
+        engine.process(doc3)
+
+        repository = Repository(conn, settings)
+        repository.add_document(doc1)
+        repository.add_document(doc2)
+        doc3_id = repository.add_document(doc3)
+
+        engine.quantize()
+
+        # Act
+        results = engine.search("woodcutters", limit=5)
+
+        assert len(results) > 0
+        assert doc3_id == results[0].id

@@ -1,7 +1,7 @@
 import pytest
 
-from chunker import Chunker
-from settings import Settings
+from sqlite_rag.chunker import Chunker
+from sqlite_rag.settings import Settings
 
 
 class MockCursor:

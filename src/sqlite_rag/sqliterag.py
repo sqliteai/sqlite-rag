@@ -3,13 +3,13 @@ from pathlib import Path
 import sqlite3
 from typing import Optional
 
-from chunker import Chunker
-from database import Database
-from engine import Engine
-from models.document import Document
-from reader import FileReader
-from repository import Repository
-from settings import Settings
+from .chunker import Chunker
+from .database import Database
+from .engine import Engine
+from .models.document import Document
+from .reader import FileReader
+from .repository import Repository
+from .settings import Settings
 
 
 class SQLiteRag:
@@ -17,7 +17,7 @@ class SQLiteRag:
         if settings is None:
             # TODO: load defaults or from the database
             settings = Settings(
-                model_path_or_name="all-MiniLM-L6-v2", db_path="sqliterag.db"
+                model_path_or_name="./all-MiniLM-L6-v2.e4ce9877.q8_0.gguf", db_path="sqliterag.db"
             )
 
         self.settings = settings
@@ -25,8 +25,8 @@ class SQLiteRag:
         self._conn = sqlite3.connect(settings.db_path)
 
         self._repository = Repository(self._conn, settings)
-        self._engine = Engine(self._conn, settings)
         self._chunker = Chunker(self._conn, settings)
+        self._engine = Engine(self._conn, settings, chunker=self._chunker)
 
         self.ready = False
 
@@ -96,3 +96,9 @@ class SQLiteRag:
         self._ensure_initialized()
 
         return self._repository.list_documents()
+
+    # def search(
+    #     self, query: str, top_k: int = 10
+    # ) -> list[Document]:
+    #     """Search for documents matching the query"""
+    #     self._ensure_initialized()

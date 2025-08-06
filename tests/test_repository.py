@@ -3,11 +3,11 @@ import tempfile
 
 from h11 import Data
 
-from database import Database
-from models.chunk import Chunk
-from models.document import Document
-from repository import Repository
-from settings import Settings
+from sqlite_rag.database import Database
+from sqlite_rag.models.chunk import Chunk
+from sqlite_rag.models.document import Document
+from sqlite_rag.repository import Repository
+from sqlite_rag.settings import Settings
 
 
 class TestRepository:
@@ -104,3 +104,12 @@ class TestRepository:
         assert documents[1].content == "Document 2 content."
         assert documents[1].uri == "doc2.txt"
         assert documents[1].metadata == {"author": "test2"}
+
+    def test_list_documents_empty(self, db_conn):
+        conn, settings = db_conn
+
+        repo = Repository(conn, settings)
+
+        documents = repo.list_documents()
+
+        assert len(documents) == 0

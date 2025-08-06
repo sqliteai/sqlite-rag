@@ -1,9 +1,8 @@
 import sqlite3
 import tempfile
 
-from database import Database
-from settings import Settings
-
+from sqlite_rag.database import Database
+from sqlite_rag.settings import Settings
 
 class TestDatabase:
     def test_db_initialization(self):

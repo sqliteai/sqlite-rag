@@ -24,11 +24,11 @@ dev = [
 ]
 
 [project.scripts]
-sqlite-rag = "src.cli:cli"
+sqlite-rag = "sqlite_rag.cli:cli"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["src*"]
+where = ["src"]
+include = ["sqlite_rag*"]
 
 [tool.isort]
 # make the tools compatible to each other

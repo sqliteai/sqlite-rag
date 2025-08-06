@@ -2,7 +2,7 @@ from datetime import datetime
 
 from attr import dataclass
 
-from models.chunk import Chunk
+from .chunk import Chunk
 
 
 @dataclass
@@ -15,6 +15,12 @@ class Document:
     updated_at: datetime | None = None
 
     chunks: list["Chunk"] = []
+
+    vec_rank: float | None = None
+    fts_rank: float | None = None
+    combined_rank: float | None = None
+    vec_distance: float | None = None
+    fts_score: float | None = None
 
     def hash(self) -> str:
         """Generate a hash for the document content"""

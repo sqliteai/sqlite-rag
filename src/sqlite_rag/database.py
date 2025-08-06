@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from settings import Settings
+from .settings import Settings
 
 
 class Database:
@@ -12,9 +12,9 @@ class Database:
         """Initialize the database with extensions and schema"""
         conn.enable_load_extension(True)
         try:
-            conn.load_extension(str(Path(__file__).parent.parent / "extensions" / "ai"))
+            conn.load_extension(str(Path(__file__).parent.parent.parent / "extensions" / "ai"))
             conn.load_extension(
-                str(Path(__file__).parent.parent / "extensions" / "vector")
+                str(Path(__file__).parent.parent.parent / "extensions" / "vector")
             )
         except sqlite3.OperationalError as e:
             raise RuntimeError(

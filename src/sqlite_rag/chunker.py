@@ -1,8 +1,8 @@
 import sqlite3
 from typing import List
 
-from models.chunk import Chunk
-from settings import Settings
+from .models.chunk import Chunk
+from .settings import Settings
 import math
 
 

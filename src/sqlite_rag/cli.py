@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-from pathlib import Path
 import shlex
 import sys
+from pathlib import Path
 from typing import Optional
 
 import typer
 
-from sqliterag import SQLiteRag
+from .sqliterag import SQLiteRag
 
 
 class CLI:
@@ -39,16 +39,39 @@ def add(
 
 
 @app.command()
-def add_text(text: str, uri: Optional[str] = None, metadata: dict = {}):
+def add_text(text: str, uri: Optional[str] = None):
     """Add a text to the database"""
     rag = SQLiteRag()
-    rag.add_text(text, uri=uri, metadata=metadata)
+    rag.add_text(text, uri=uri, metadata={})
 
 
 @app.command("list")
 def list_documents():
     """List all documents in the database"""
-    pass
+    rag = SQLiteRag()
+    documents = rag.list_documents()
+
+    if not documents:
+        typer.echo("No documents found in the database.")
+        return
+
+    # Print stats
+    typer.echo(f"Total documents: {len(documents)}")
+    typer.echo("Documents:")
+    typer.echo("-" * 106)
+
+    typer.echo(f"{'ID':<36} {'URI/Content':<50} {'Created At':<20}")
+    typer.echo("-" * 106)
+
+    for doc in documents:
+        # Show URI if available, otherwise show first chars of content
+        uri_or_content = doc.uri or (
+            doc.content[:47] + "..." if len(doc.content) > 47 else doc.content
+        )
+        created_at = (
+            doc.created_at.strftime("%Y-%m-%d %H:%M:%S") if doc.created_at else "N/A"
+        )
+        typer.echo(f"{doc.id:<36} {uri_or_content:<50} {created_at:<20}")
 
 
 @app.command()
