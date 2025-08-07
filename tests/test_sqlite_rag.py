@@ -1,3 +1,4 @@
+import os
 import tempfile
 from pathlib import Path
 
@@ -28,7 +29,9 @@ class TestSQLiteRag:
 
     def test_add_unsupported_file_type(self, db_settings):
         # Create a temporary file with an unsupported extension
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".unsupported", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".unsupported", delete=False
+        ) as f:
             f.write("This is a test document with unsupported file type.")
 
         rag = SQLiteRag(db_settings)
@@ -252,3 +255,172 @@ class TestSQLiteRag:
         cursor.execute("SELECT COUNT(*) FROM chunks WHERE document_id = ?", (doc_id,))
         chunk_count = cursor.fetchone()[0]
         assert chunk_count == 0
+
+    def test_rebuild_with_existing_files(self, db_settings):
+        """Test rebuild with files that still exist"""
+        # Arrange
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f1:
+            f1.write("Original content for file 1")
+            file1_path = f1.name
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f2:
+            f2.write("Original content for file 2")
+            file2_path = f2.name
+
+        rag = SQLiteRag(db_settings)
+
+        rag.add(file1_path)
+        rag.add(file2_path)
+
+        documents = rag.list_documents()
+        assert len(documents) == 2
+
+        cursor = rag._conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM chunks")
+        initial_chunk_count = cursor.fetchone()[0]
+        assert initial_chunk_count > 0
+
+        # Act
+        Path(file1_path).write_text("Modified content for file 1")
+        Path(file2_path).write_text("Modified content for file 2")
+
+        result = rag.rebuild()
+
+        # Assert
+        assert result["total"] == 2
+        assert result["reprocessed"] == 2
+        assert result["not_found"] == 0
+        assert result["removed"] == 0
+
+        documents = rag.list_documents()
+        assert len(documents) == 2
+
+        # Check that content was updated
+        found_file1 = None
+        found_file2 = None
+        for doc in documents:
+            if doc.uri == file1_path:
+                found_file1 = doc
+            elif doc.uri == file2_path:
+                found_file2 = doc
+
+        assert found_file1 is not None
+        assert found_file2 is not None
+        assert "Modified content for file 1" in found_file1.content
+        assert "Modified content for file 2" in found_file2.content
+
+    def test_rebuild_with_missing_files(self, db_settings):
+        """Test rebuild when some files are missing"""
+        # Arrange
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f1:
+            f1.write("Content for file 1")
+            file1_path = f1.name
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f2:
+            f2.write("Content for file 2")
+            file2_path = f2.name
+
+        rag = SQLiteRag(db_settings)
+
+        # Add files
+        rag.add(file1_path)
+        rag.add(file2_path)
+
+        # Make file missing
+        os.unlink(file2_path)
+
+        # Act
+        result = rag.rebuild(remove_missing=False)
+
+        # Assert
+        assert result["total"] == 2
+        assert result["reprocessed"] == 1  # Only file1 was reprocessed
+        assert result["not_found"] == 1  # file2 was not found
+        assert result["removed"] == 0  # Nothing removed
+
+        # Both documents should still exist in database
+        documents = rag.list_documents()
+        assert len(documents) == 2
+
+    def test_rebuild_remove_missing_files(self, db_settings):
+        """Test rebuild with remove_missing=True"""
+        # Arrange
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f1:
+            f1.write("Content for file 1")
+            file1_path = f1.name
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f2:
+            f2.write("Content for file 2")
+            file2_path = f2.name
+
+        rag = SQLiteRag(db_settings)
+
+        rag.add(file1_path)
+        rag.add(file2_path)
+
+        # Make it missing
+        os.unlink(file2_path)
+
+        # Act
+        result = rag.rebuild(remove_missing=True)
+
+        # Assert
+        assert result["total"] == 2
+        assert result["reprocessed"] == 1  # Only file1 was reprocessed
+        assert result["not_found"] == 1  # file2 was not found
+        assert result["removed"] == 1  # file2 was removed
+
+        # Only one document should remain
+        documents = rag.list_documents()
+        assert len(documents) == 1
+        assert documents[0].uri == file1_path
+
+    def test_rebuild_text_documents(self, db_settings):
+        """Test rebuild with text documents (no URI)"""
+        rag = SQLiteRag(db_settings)
+
+        rag.add_text("Text document 1 content")
+
+        result = rag.rebuild()
+
+        assert result["total"] == 1
+        assert result["reprocessed"] == 1
+        assert result["not_found"] == 0
+        assert result["removed"] == 0
+
+        documents = rag.list_documents()
+        assert len(documents) == 1
+
+    def test_reset_database(self, db_settings):
+        rag = SQLiteRag(db_settings)
+
+        rag.add_text("Test document 1")
+        rag.add_text("Test document 2", uri="test.txt")
+
+        documents = rag.list_documents()
+        assert len(documents) == 2
+
+        success = rag.reset()
+        assert success is True
+
+        documents = rag.list_documents()
+        assert len(documents) == 0
+
+    def test_reset_allows_adding_data_after(self, db_settings):
+        """Test that database is fully functional after reset"""
+        rag = SQLiteRag(db_settings)
+
+        rag.add_text("Initial document")
+
+        success = rag.reset()
+        assert success is True
+
+        rag.add_text("Document after reset", uri="after_reset.txt")
+
+        documents = rag.list_documents()
+        assert len(documents) == 1
+        assert documents[0].content == "Document after reset"
+        assert documents[0].uri == "after_reset.txt"
+
+        results = rag.search("reset")
+        assert len(results) > 0

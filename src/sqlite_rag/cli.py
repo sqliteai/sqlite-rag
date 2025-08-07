@@ -114,15 +114,53 @@ def remove(
 
 
 @app.command()
-def rebuild():
+def rebuild(
+    remove_missing: bool = typer.Option(
+        False, "--remove-missing", help="Remove documents whose files are not found"
+    )
+):
     """Rebuild embeddings and full-text index"""
-    pass
+    rag = SQLiteRag()
+
+    typer.echo("Starting rebuild process...")
+
+    result = rag.rebuild(remove_missing=remove_missing)
+
+    typer.echo(f"Rebuild completed:")
+    typer.echo(f"  Total documents: {result['total']}")
+    typer.echo(f"  Reprocessed: {result['reprocessed']}")
+    typer.echo(f"  Not found: {result['not_found']}")
+    typer.echo(f"  Removed: {result['removed']}")
 
 
 @app.command()
-def reset():
+def reset(
+    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt")
+):
     """Reset/clear the entire database"""
-    pass
+    rag = SQLiteRag()
+
+    # Show warning and ask for confirmation unless -y flag is used
+    if not yes:
+        typer.echo(
+            "WARNING: This will permanently delete all documents and data from the database!"
+        )
+        typer.echo(f"Database file: {rag.settings.db_path}")
+        typer.echo()
+        confirm = typer.confirm("Are you sure you want to reset the entire database?")
+        if not confirm:
+            typer.echo("Reset cancelled.")
+            return
+
+    typer.echo("Resetting database...")
+
+    success = rag.reset()
+
+    if success:
+        typer.echo("Database reset completed successfully.")
+    else:
+        typer.echo("Failed to reset database.")
+        raise typer.Exit(1)
 
 
 @app.command()
@@ -138,7 +176,14 @@ def search(
         return
 
     typer.echo(f"Found {len(results)} documents:")
-    
+    # print the position, the snippet and the uri as a table
+    typer.echo(f"{'Position':<10} {'Content':<50}")
+    typer.echo("-" * 60)
+    for i, doc in enumerate(results, start=1):
+        uri_or_content = doc.uri or (
+            doc.content[:47] + "..." if len(doc.content) > 47 else doc.content
+        )
+        typer.echo(f"{i:<10} {uri_or_content:<50}")
 
 
 def repl_mode():
@@ -147,7 +192,7 @@ def repl_mode():
 
     while True:
         try:
-            command = input("sqlite-rag> ").strip()
+            command = input("\nsqlite-rag> ").strip()
             if not command:
                 continue
 

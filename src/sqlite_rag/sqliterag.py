@@ -102,9 +102,96 @@ class SQLiteRag:
 
         return self._repository.remove_document(document.id or "")
 
-    def search(
-        self, query: str, top_k: int = 10
-    ) -> list[Document]:
+    def rebuild(self, remove_missing: bool = False) -> dict:
+        """Rebuild embeddings and full-text index for all documents"""
+        self._ensure_initialized()
+
+        documents = self._repository.list_documents()
+        total_docs = len(documents)
+        reprocessed = 0
+        not_found = 0
+        removed = 0
+
+        for doc in documents:
+            if doc.uri and Path(doc.uri).exists():
+                # File still exists, recreate embeddings
+                try:
+                    content = FileReader.parse_file(Path(doc.uri))
+                    doc.content = content
+
+                    self._repository.remove_document(doc.id or "")
+                    processed_doc = self._engine.process(doc)
+                    self._repository.add_document(processed_doc)
+
+                    reprocessed += 1
+                    self._logger.debug(f"Reprocessed: {doc.uri}")
+                except Exception as e:
+                    self._logger.error(f"Error processing {doc.uri}: {e}")
+                    not_found += 1
+            elif doc.uri:
+                # File not found
+                not_found += 1
+                self._logger.warning(f"File not found: {doc.uri}")
+
+                if remove_missing:
+                    self._repository.remove_document(doc.id or "")
+                    removed += 1
+                    self._logger.info(f"Removed missing document: {doc.uri}")
+            else:
+                # Document without URI (text content)
+                try:
+                    self._repository.remove_document(doc.id or "")
+                    processed_doc = self._engine.process(doc)
+                    self._repository.add_document(processed_doc)
+
+                    reprocessed += 1
+                    self._logger.debug(f"Reprocessed text document: {doc.content[:20]!r}...")
+                except Exception as e:
+                    self._logger.error(f"Error processing text document {doc.id}: {e}")
+
+        if self.settings.quantize_scan:
+            self._engine.quantize()
+
+        return {
+            "total": total_docs,
+            "reprocessed": reprocessed,
+            "not_found": not_found,
+            "removed": removed,
+        }
+
+    def reset(self) -> bool:
+        """Reset/clear the entire database by deleting and recreating it"""
+        db_path = self.settings.db_path
+        
+        try:
+            # Close the database connection
+            self._conn.close()
+            
+            # Delete the database file if it exists
+            if Path(db_path).exists():
+                Path(db_path).unlink()
+                self._logger.info(f"Deleted database file: {db_path}")
+            
+            # Recreate the database connection and initialize
+            self._conn = sqlite3.connect(db_path)
+            Database.initialize(self._conn, self.settings)
+            
+            # Reinitialize components with new connection
+            self._repository = Repository(self._conn, self.settings)
+            self._chunker = Chunker(self._conn, self.settings)
+            self._engine = Engine(self._conn, self.settings, chunker=self._chunker)
+            
+            # Reset ready flag so initialization happens on next use
+            self.ready = False
+            
+            self._logger.info("Database reset completed successfully")
+            return True
+            
+        except Exception as e:
+            self._logger.error(f"Error during database reset: {e}")
+            return False
+
+    def search(self, query: str, top_k: int = 10) -> list[Document]:
         """Search for documents matching the query"""
         self._ensure_initialized()
 
