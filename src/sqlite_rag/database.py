@@ -12,7 +12,9 @@ class Database:
         """Initialize the database with extensions and schema"""
         conn.enable_load_extension(True)
         try:
-            conn.load_extension(str(Path(__file__).parent.parent.parent / "extensions" / "ai"))
+            conn.load_extension(
+                str(Path(__file__).parent.parent.parent / "extensions" / "ai")
+            )
             conn.load_extension(
                 str(Path(__file__).parent.parent.parent / "extensions" / "vector")
             )
@@ -61,7 +63,6 @@ class Database:
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 document_id TEXT,
                 content TEXT,
                 embedding BLOB,
@@ -72,7 +73,7 @@ class Database:
 
         cursor.execute(
             """
-            CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(content, content='chunks', content_rowid='id');
+            CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(content, content='chunks', content_rowid='rowid');
         """
         )
 

@@ -19,7 +19,7 @@ class SQLiteRag:
         if settings is None:
             # TODO: load defaults or from the database
             settings = Settings(
-                model_path_or_name="./all-MiniLM-L6-v2.e4ce9877.q8_0.gguf",
+                model_path_or_name="./Qwen3-Embedding-0.6B-Q8_0.gguf",
                 db_path="sqliterag.db",
             )
 
@@ -102,8 +102,10 @@ class SQLiteRag:
 
         return self._repository.remove_document(document.id or "")
 
-    # def search(
-    #     self, query: str, top_k: int = 10
-    # ) -> list[Document]:
-    #     """Search for documents matching the query"""
-    #     self._ensure_initialized()
+    def search(
+        self, query: str, top_k: int = 10
+    ) -> list[Document]:
+        """Search for documents matching the query"""
+        self._ensure_initialized()
+
+        return self._engine.search(query, limit=top_k)

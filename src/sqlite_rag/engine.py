@@ -81,7 +81,7 @@ class Engine:
                     v.distance
                 FROM chunks AS c
                     JOIN vector_quantize_scan('chunks', 'embedding', vector_convert_f32(:query_embedding), :k) AS v
-                    ON c.id = v.rowid
+                    ON c.rowid = v.rowid
             ),
             -- Full-text search results
             fts_matches AS (
@@ -90,7 +90,7 @@ class Engine:
                     c.document_id,
                     rank AS score
                 FROM chunks_fts AS c_fts
-                    JOIN chunks AS c ON c_fts.rowid = c.id
+                    JOIN chunks AS c ON c_fts.rowid = c.rowid
                 WHERE c_fts.content MATCH :query
                 LIMIT :k
             ),
@@ -127,7 +127,7 @@ class Engine:
             FROM matches;
             """,
             {
-                "query": f'"{query}"',
+                "query": query + "*",
                 "query_embedding": query_embedding,
                 "k": limit,
                 # TODO: move to settings or costants

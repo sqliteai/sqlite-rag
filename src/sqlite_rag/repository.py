@@ -33,6 +33,10 @@ class Repository:
                 "INSERT INTO chunks (document_id, content, embedding) VALUES (?, ?, vector_convert_f32(?))",
                 (document_id, chunk.content, chunk.embedding),
             )
+            cursor.execute(
+                "INSERT INTO chunks_fts (rowid, content) VALUES (last_insert_rowid(), ?)",
+                (chunk.content,),
+            )
 
         self._conn.commit()
 
@@ -62,11 +66,11 @@ class Repository:
         """Find document by ID or URI"""
         cursor = self._conn.cursor()
         cursor.execute(
-            "SELECT id, content, uri, metadata, created_at FROM documents WHERE id = ? OR uri = ?", 
-            (identifier, identifier)
+            "SELECT id, content, uri, metadata, created_at FROM documents WHERE id = ? OR uri = ?",
+            (identifier, identifier),
         )
         row = cursor.fetchone()
-        
+
         if row:
             doc_id, content, uri, metadata, created_at = row
             return Document(
@@ -81,17 +85,21 @@ class Repository:
     def remove_document(self, document_id: str) -> bool:
         """Remove document and its chunks by document ID"""
         cursor = self._conn.cursor()
-        
+
         # Check if document exists
         cursor.execute("SELECT COUNT(*) FROM documents WHERE id = ?", (document_id,))
         if cursor.fetchone()[0] == 0:
             return False
-        
-        # Remove chunks first (foreign key constraint)
+
+        # Remove chunks first
+        cursor.execute(
+            "DELETE FROM chunks_fts WHERE rowid IN (SELECT rowid FROM chunks WHERE document_id = ?)",
+            (document_id,),
+        )
         cursor.execute("DELETE FROM chunks WHERE document_id = ?", (document_id,))
-        
+
         # Remove document
         cursor.execute("DELETE FROM documents WHERE id = ?", (document_id,))
-        
+
         self._conn.commit()
         return True

@@ -11,7 +11,7 @@ from sqlite_rag.settings import Settings
 def db_conn():
     with tempfile.NamedTemporaryFile(suffix=".db") as tmp_db:
         settings = Settings(
-            model_path_or_name="./all-MiniLM-L6-v2.e4ce9877.q8_0.gguf",
+            model_path_or_name="./Qwen3-Embedding-0.6B-Q8_0.gguf",
             db_path=tmp_db.name,
         )
 
@@ -27,7 +27,7 @@ def db_conn():
 def db_settings() -> Settings:
     with tempfile.NamedTemporaryFile(suffix=".db") as tmp_db:
         settings = Settings(
-            model_path_or_name="./all-MiniLM-L6-v2.e4ce9877.q8_0.gguf",
+            model_path_or_name="./Qwen3-Embedding-0.6B-Q8_0.gguf",
             db_path=tmp_db.name,
         )
     return settings

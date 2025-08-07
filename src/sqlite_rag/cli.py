@@ -34,7 +34,7 @@ def add(
 ):
     """Add a file path to the database"""
     rag = SQLiteRag()
-    rag.add(path, recursively=recursive)
+    rag.add(path, recursive=recursive)
 
 
 @app.command()
@@ -56,8 +56,6 @@ def list_documents():
 
     # Print stats
     typer.echo(f"Total documents: {len(documents)}")
-    typer.echo("Documents:")
-    typer.echo("-" * 106)
 
     typer.echo(f"{'ID':<36} {'URI/Content':<50} {'Created At':<20}")
     typer.echo("-" * 106)
@@ -76,32 +74,36 @@ def list_documents():
 @app.command()
 def remove(
     identifier: str,
-    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt")
+    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt"),
 ):
     """Remove document by path or UUID"""
     rag = SQLiteRag()
-    
+
     # Find the document first
     document = rag.find_document(identifier)
     if not document:
         typer.echo(f"Document not found: {identifier}")
         raise typer.Exit(1)
-    
+
     # Show document details
     typer.echo(f"Found document:")
     typer.echo(f"ID: {document.id}")
     typer.echo(f"URI: {document.uri or 'N/A'}")
-    typer.echo(f"Created: {document.created_at.strftime('%Y-%m-%d %H:%M:%S') if document.created_at else 'N/A'}")
-    typer.echo(f"Content preview: {document.content[:200]}{'...' if len(document.content) > 200 else ''}")
+    typer.echo(
+        f"Created: {document.created_at.strftime('%Y-%m-%d %H:%M:%S') if document.created_at else 'N/A'}"
+    )
+    typer.echo(
+        f"Content preview: {document.content[:200]}{'...' if len(document.content) > 200 else ''}"
+    )
     typer.echo()
-    
+
     # Ask for confirmation unless -y flag is used
     if not yes:
         confirm = typer.confirm("Are you sure you want to delete this document?")
         if not confirm:
             typer.echo("Cancelled.")
             return
-    
+
     # Remove the document
     success = rag.remove_document(identifier)
     if success:
@@ -128,7 +130,15 @@ def search(
     query: str, limit: int = typer.Option(10, help="Number of results to return")
 ):
     """Search for documents using hybrid vector + full-text search"""
-    pass
+    rag = SQLiteRag()
+    results = rag.search(query, top_k=limit)
+
+    if not results:
+        typer.echo("No documents found matching the query.")
+        return
+
+    typer.echo(f"Found {len(results)} documents:")
+    
 
 
 def repl_mode():

@@ -139,7 +139,7 @@ class TestEngine:
         engine.quantize()
 
         # Act
-        results = engine.search("brown fox animal", limit=5)
+        results = engine.search("quick brown fox", limit=5)
 
         assert len(results) > 0
         assert doc1_id == results[0].id
