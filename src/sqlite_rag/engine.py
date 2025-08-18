@@ -49,7 +49,12 @@ class Engine:
         cursor = self._conn.cursor()
 
         for chunk in chunks:
-            cursor.execute("SELECT llm_embed_generate(?) AS embedding", (chunk.content,))
+            try:
+                cursor.execute("SELECT llm_embed_generate(?) AS embedding", (chunk.content,))
+            except sqlite3.Error as e:
+                print(f"Error generating embedding for chunk\n: ```{chunk.content}```")
+                raise e
+            
             result = cursor.fetchone()
 
             if result is None:

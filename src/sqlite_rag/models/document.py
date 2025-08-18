@@ -1,4 +1,5 @@
 from datetime import datetime
+import hashlib
 
 from attr import dataclass
 
@@ -24,4 +25,4 @@ class Document:
 
     def hash(self) -> str:
         """Generate a hash for the document content"""
-        return str(hash(self.content))
+        return hashlib.blake2b(self.content.encode()).hexdigest()

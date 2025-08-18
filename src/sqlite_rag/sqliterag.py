@@ -64,13 +64,13 @@ class SQLiteRag:
             
             exists = self._repository.document_exists_by_hash(document.hash())
             if exists:
-                self._logger.info(f"Unchanged document: {file_path}")
+                self._logger.info(f"Unchanged: {file_path}")
                 continue
 
+            self._logger.info(f"Processing: {file_path}")
             document = self._engine.process(document)
 
             self._repository.add_document(document)
-            self._logger.info(str(file_path))
 
         if self.settings.quantize_scan:
             self._engine.quantize()
@@ -108,10 +108,10 @@ class SQLiteRag:
 
         # First find the document to get its ID
         document = self._repository.find_document_by_id_or_uri(identifier)
-        if not document:
+        if not document or not document.id:
             return False
 
-        return self._repository.remove_document(document.id or "")
+        return self._repository.remove_document(document.id)
 
     def rebuild(self, remove_missing: bool = False) -> dict:
         """Rebuild embeddings and full-text index for all documents"""
@@ -124,13 +124,15 @@ class SQLiteRag:
         removed = 0
 
         for doc in documents:
+            doc_id = doc.id or ""
+
             if doc.uri and Path(doc.uri).exists():
                 # File still exists, recreate embeddings
                 try:
                     content = FileReader.parse_file(Path(doc.uri))
                     doc.content = content
 
-                    self._repository.remove_document(doc.id or "")
+                    self._repository.remove_document(doc_id)
                     processed_doc = self._engine.process(doc)
                     self._repository.add_document(processed_doc)
 
@@ -151,7 +153,7 @@ class SQLiteRag:
             else:
                 # Document without URI (text content)
                 try:
-                    self._repository.remove_document(doc.id or "")
+                    self._repository.remove_document(doc_id)
                     processed_doc = self._engine.process(doc)
                     self._repository.add_document(processed_doc)
 
