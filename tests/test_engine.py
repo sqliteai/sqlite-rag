@@ -68,7 +68,7 @@ class TestEngine:
         results = engine.search("wood lumberjack", limit=5)
 
         assert len(results) > 0
-        assert doc3_id == results[0].id
+        assert doc3_id == results[0].document.id
 
     def test_search_semantic_result(self, db_conn):
         # Arrange
@@ -105,7 +105,7 @@ class TestEngine:
         results = engine.search("lumberjack", limit=5)
 
         assert len(results) > 0
-        assert doc3_id == results[0].id
+        assert doc3_id == results[0].document.id
 
     def test_search_fts_results(self, db_conn):
         # Arrange
@@ -142,4 +142,4 @@ class TestEngine:
         results = engine.search("quick brown fox", limit=5)
 
         assert len(results) > 0
-        assert doc1_id == results[0].id
+        assert doc1_id == results[0].document.id

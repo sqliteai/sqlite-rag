@@ -16,6 +16,8 @@ def db_conn():
         )
 
     conn = sqlite3.connect(settings.db_path)
+    conn.row_factory = sqlite3.Row
+    
     Database.initialize(conn, settings)
 
     yield conn, settings

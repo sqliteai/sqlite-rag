@@ -63,6 +63,7 @@ class Database:
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS chunks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 document_id TEXT,
                 content TEXT,
                 embedding BLOB,
@@ -73,7 +74,7 @@ class Database:
 
         cursor.execute(
             """
-            CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(content, content='chunks', content_rowid='rowid');
+            CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(content, content='chunks', content_rowid='id');
         """
         )
 

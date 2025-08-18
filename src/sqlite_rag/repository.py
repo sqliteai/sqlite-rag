@@ -82,13 +82,21 @@ class Repository:
             )
         return None
 
+    def document_exists_by_hash(self, hash: str) -> bool:
+        """Check if a document with the given hash exists"""
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT 1 FROM documents WHERE hash = ?", (hash,))
+        return cursor.fetchone() is not None
+
     def remove_document(self, document_id: str) -> bool:
         """Remove document and its chunks by document ID"""
         cursor = self._conn.cursor()
 
         # Check if document exists
-        cursor.execute("SELECT COUNT(*) FROM documents WHERE id = ?", (document_id,))
-        if cursor.fetchone()[0] == 0:
+        cursor.execute(
+            "SELECT COUNT(*) AS total FROM documents WHERE id = ?", (document_id,)
+        )
+        if cursor.fetchone()["total"] == 0:
             return False
 
         # Remove chunks first

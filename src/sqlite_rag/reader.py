@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from markitdown import MarkItDown
+from markitdown import MarkItDown, StreamInfo
 
 
 class FileReader:
@@ -47,8 +47,8 @@ class FileReader:
     @staticmethod
     def parse_file(path: Path) -> str:
         try:
-            reader = MarkItDown()
-            return reader.convert(path).text_content
+            converter = MarkItDown()
+            return converter.convert(path, stream_info=StreamInfo(charset='utf8')).text_content
         except Exception as exc:
             raise ValueError(f"Failed to parse file {path}") from exc
 

@@ -1,5 +1,8 @@
+import re
 import sqlite3
 from pathlib import Path
+
+from sqlite_rag.models.document_result import DocumentResult
 
 from .chunker import Chunker
 from .models.chunk import Chunk
@@ -46,13 +49,13 @@ class Engine:
         cursor = self._conn.cursor()
 
         for chunk in chunks:
-            cursor.execute("SELECT llm_embed_generate(?)", (chunk.content,))
+            cursor.execute("SELECT llm_embed_generate(?) AS embedding", (chunk.content,))
             result = cursor.fetchone()
 
             if result is None:
                 raise RuntimeError("Failed to generate embedding.")
 
-            chunk.embedding = result[0]
+            chunk.embedding = result['embedding']
 
         return chunks
 
@@ -64,11 +67,14 @@ class Engine:
 
         self._conn.commit()
 
-    def search(self, query: str, limit: int = 10) -> list[Document]:
+    def search(self, query: str, limit: int = 10) -> list[DocumentResult]:
         """Semantic search and full-text search sorted with Reciprocal Rank Fusion."""
         cursor = self._conn.cursor()
 
         query_embedding = self.generate_embedding([Chunk(content=query)])[0].embedding
+
+        # Clean up and split into words
+        query = " ".join(re.findall(r"\b\w+\b", query.lower()))
 
         cursor.execute(
             # TODO: use vector_convert_XXX to convert the query to the correct type
@@ -76,30 +82,25 @@ class Engine:
             -- sqlite-vector KNN vector search results
             WITH vec_matches AS (
                 SELECT
+                    v.rowid AS chunk_id,
                     row_number() over (order by v.distance) AS rank_number,
-                    c.document_id,
                     v.distance
-                FROM chunks AS c
-                    JOIN vector_quantize_scan('chunks', 'embedding', vector_convert_f32(:query_embedding), :k) AS v
-                    ON c.rowid = v.rowid
+                FROM vector_quantize_scan('chunks', 'embedding', vector_convert_f32(:query_embedding), :k) AS v
             ),
             -- Full-text search results
             fts_matches AS (
                 SELECT
+                    chunks_fts.rowid AS chunk_id,
                     row_number() over (order by rank) AS rank_number,
-                    c.document_id,
                     rank AS score
-                FROM chunks_fts AS c_fts
-                    JOIN chunks AS c ON c_fts.rowid = c.rowid
-                WHERE c_fts.content MATCH :query
+                FROM chunks_fts
+                WHERE chunks_fts MATCH :query
                 LIMIT :k
             ),
             -- combine FTS5 + vector search results with RRF
             matches AS (
                 SELECT
-                    documents.id,
-                    documents.uri,
-                    documents.content,
+                    COALESCE(vec_matches.chunk_id, fts_matches.chunk_id) AS chunk_id,
                     vec_matches.rank_number AS vec_rank,
                     fts_matches.rank_number AS fts_rank,
                     -- Reciprocal Rank Fusion score
@@ -111,22 +112,26 @@ class Engine:
                     fts_matches.score AS fts_score
                 FROM vec_matches
                     FULL OUTER JOIN fts_matches
-                        ON vec_matches.document_id = fts_matches.document_id
-                    JOIN documents ON documents.id = COALESCE(vec_matches.document_id, fts_matches.document_id)
-                ORDER BY combined_rank DESC
+                        ON vec_matches.chunk_id = fts_matches.chunk_id
             )
             SELECT
-                id,
-                uri,
-                content,
+                documents.id,
+                documents.uri,
+                documents.content as document_content,
+                chunks.content AS snippet,
                 vec_rank,
                 fts_rank,
                 combined_rank,
                 vec_distance,
                 fts_score
-            FROM matches;
+            FROM matches
+                JOIN chunks ON chunks.id = matches.chunk_id
+                JOIN documents ON documents.id = chunks.document_id
+            ORDER BY combined_rank DESC
+            ;
             """,
             {
+                # '*' is used to match while typing
                 "query": query + "*",
                 "query_embedding": query_embedding,
                 "k": limit,
@@ -139,15 +144,18 @@ class Engine:
 
         rows = cursor.fetchall()
         return [
-            Document(
-                id=row[0],
-                uri=row[1],
-                content=row[2],
-                vec_rank=row[3],
-                fts_rank=row[4],
-                combined_rank=row[5],
-                vec_distance=row[6],
-                fts_score=row[7],
+            DocumentResult(
+                document=Document(
+                    id=row["id"],
+                    uri=row["uri"],
+                    content=row["document_content"],
+                ),
+                snippet=row["snippet"],
+                vec_rank=row["vec_rank"],
+                fts_rank=row["fts_rank"],
+                combined_rank=row["combined_rank"],
+                vec_distance=row["vec_distance"],
+                fts_score=row["fts_score"],
             )
             for row in rows
         ]

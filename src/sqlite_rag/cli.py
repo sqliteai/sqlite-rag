@@ -122,11 +122,11 @@ def rebuild(
     """Rebuild embeddings and full-text index"""
     rag = SQLiteRag()
 
-    typer.echo("Starting rebuild process...")
+    typer.echo("Rebuild process...")
 
     result = rag.rebuild(remove_missing=remove_missing)
 
-    typer.echo(f"Rebuild completed:")
+    typer.echo("Rebuild completed:")
     typer.echo(f"  Total documents: {result['total']}")
     typer.echo(f"  Reprocessed: {result['reprocessed']}")
     typer.echo(f"  Not found: {result['not_found']}")
@@ -176,14 +176,12 @@ def search(
         return
 
     typer.echo(f"Found {len(results)} documents:")
-    # print the position, the snippet and the uri as a table
-    typer.echo(f"{'Position':<10} {'Content':<50}")
-    typer.echo("-" * 60)
-    for i, doc in enumerate(results, start=1):
-        uri_or_content = doc.uri or (
-            doc.content[:47] + "..." if len(doc.content) > 47 else doc.content
-        )
-        typer.echo(f"{i:<10} {uri_or_content:<50}")
+    typer.echo(f"{'Pos':<4} {'Preview':<60} {'URI':<50}")
+    typer.echo("-" * 116)
+    for idx, doc in enumerate(results, 1):
+        snippet = f"{doc.snippet[:57]!r}" + "..." if len(doc.snippet) > 60 else f"{doc.snippet!r}"
+        uri = doc.document.uri or "N/A"
+        typer.echo(f"{idx:<4} {snippet:<60} {uri:<50}")
 
 
 def repl_mode():

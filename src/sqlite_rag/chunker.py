@@ -22,8 +22,8 @@ class Chunker:
         """Get token count using SQLite AI extension."""
         if text == "":
             return 0
-        cursor = self._conn.execute("SELECT llm_token_count(?)", (text,))
-        return cursor.fetchone()[0]
+        cursor = self._conn.execute("SELECT llm_token_count(?) AS count", (text,))
+        return cursor.fetchone()['count']
 
     def _estimate_tokens_count(self, text: str) -> int:
         """Estimate token count more conservatively."""

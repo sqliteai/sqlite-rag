@@ -1,9 +1,9 @@
-import re
 import sqlite3
 from pathlib import Path
 from typing import Optional
 
 from sqlite_rag.logger import Logger
+from sqlite_rag.models.document_result import DocumentResult
 
 from .chunker import Chunker
 from .database import Database
@@ -26,13 +26,19 @@ class SQLiteRag:
         self.settings = settings
         self._logger = Logger()
 
-        self._conn = sqlite3.connect(settings.db_path)
+        self._conn = self._create_db_connection()
 
         self._repository = Repository(self._conn, settings)
         self._chunker = Chunker(self._conn, settings)
         self._engine = Engine(self._conn, settings, chunker=self._chunker)
 
         self.ready = False
+    
+    def _create_db_connection(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.settings.db_path)
+        conn.row_factory = sqlite3.Row
+
+        return conn
 
     def _ensure_initialized(self):
         if not self.ready:
@@ -54,9 +60,14 @@ class SQLiteRag:
         for file_path in files_to_process:
             # TODO: include metadata extraction and mdx options (see our docsearch)
             content = FileReader.parse_file(file_path)
-            document = self._engine.process(
-                Document(content=content, uri=str(file_path))
-            )
+            document = Document(content=content, uri=str(file_path.absolute()))
+            
+            exists = self._repository.document_exists_by_hash(document.hash())
+            if exists:
+                self._logger.info(f"Unchanged document: {file_path}")
+                continue
+
+            document = self._engine.process(document)
 
             self._repository.add_document(document)
             self._logger.info(str(file_path))
@@ -145,7 +156,9 @@ class SQLiteRag:
                     self._repository.add_document(processed_doc)
 
                     reprocessed += 1
-                    self._logger.debug(f"Reprocessed text document: {doc.content[:20]!r}...")
+                    self._logger.debug(
+                        f"Reprocessed text document: {doc.content[:20]!r}..."
+                    )
                 except Exception as e:
                     self._logger.error(f"Error processing text document {doc.id}: {e}")
 
@@ -162,36 +175,34 @@ class SQLiteRag:
     def reset(self) -> bool:
         """Reset/clear the entire database by deleting and recreating it"""
         db_path = self.settings.db_path
-        
+
         try:
             # Close the database connection
             self._conn.close()
-            
+
             # Delete the database file if it exists
             if Path(db_path).exists():
                 Path(db_path).unlink()
                 self._logger.info(f"Deleted database file: {db_path}")
-            
+
             # Recreate the database connection and initialize
-            self._conn = sqlite3.connect(db_path)
-            Database.initialize(self._conn, self.settings)
-            
+            self._conn = self._create_db_connection()
+
             # Reinitialize components with new connection
             self._repository = Repository(self._conn, self.settings)
             self._chunker = Chunker(self._conn, self.settings)
             self._engine = Engine(self._conn, self.settings, chunker=self._chunker)
-            
+
             # Reset ready flag so initialization happens on next use
             self.ready = False
-            
-            self._logger.info("Database reset completed successfully")
+
             return True
-            
+
         except Exception as e:
             self._logger.error(f"Error during database reset: {e}")
             return False
 
-    def search(self, query: str, top_k: int = 10) -> list[Document]:
+    def search(self, query: str, top_k: int = 10) -> list[DocumentResult]:
         """Search for documents matching the query"""
         self._ensure_initialized()
 

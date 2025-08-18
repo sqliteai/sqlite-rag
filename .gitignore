@@ -1,4 +1,5 @@
 semsearch/
+docs/
 
 # LLM models
 *.gguf

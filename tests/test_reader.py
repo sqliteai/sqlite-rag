@@ -76,3 +76,17 @@ class TestFileReader:
 
         content = FileReader.parse_file(Path(f.name))
         assert "# This is a test markdown file." in content
+
+    def test_markItDown_file_with_unicode_content(self):
+        """Test that FileReader can handle UTF-8 files with Unicode characters like `±`"""
+        with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as f:
+            f.write(
+                "<html><body><h1>This is a document with a Unicode character: ±</h1></body></html>".encode(
+                    "utf-8"
+                )
+            )
+
+        # This should not raise a UnicodeDecodeError if MarkItDown's PlainTextConverter
+        # is trying to decode as ASCII instead of UTF-8
+        content = FileReader.parse_file(Path(f.name))
+        assert "# This is a document with a Unicode character: ±" in content

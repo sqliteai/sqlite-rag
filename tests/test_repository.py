@@ -206,3 +206,27 @@ class TestRepository:
         success = repo.remove_document("nonexistent-id")
 
         assert success is False
+
+    def test_document_exists_by_hash_exists(self, db_conn):
+        conn, settings = db_conn
+        repo = Repository(conn, settings)
+
+        doc = Document(
+            content="Test document content.",
+            uri="test.txt",
+            metadata={"author": "test"}
+        )
+        repo.add_document(doc)
+
+        exists = repo.document_exists_by_hash(doc.hash())
+        assert exists is True
+
+    def test_document_exists_by_hash_not_exists(self, db_conn):
+        conn, settings = db_conn
+        repo = Repository(conn, settings)
+
+        # Check for non-existent hash
+        fake_doc = Document(content="Non-existent content")
+        exists = repo.document_exists_by_hash(fake_doc.hash())
+
+        assert exists is False

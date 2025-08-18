@@ -11,7 +11,7 @@ class MockCursor:
         self.token_count = token_count
 
     def fetchone(self):
-        return [self.token_count]
+        return {"count": self.token_count}
 
 
 class MockSQLiteConnection:
