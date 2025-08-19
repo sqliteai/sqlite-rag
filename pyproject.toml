@@ -9,6 +9,7 @@ description = "Hybird search with SQLite AI and SQLite Vector"
 authors = [{name = "User"}]
 requires-python = ">=3.10"
 dependencies = [
+    "attrs",
     "typer",
     "huggingface_hub",
     "markitdown[all]"
