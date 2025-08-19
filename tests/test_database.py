@@ -4,6 +4,7 @@ import tempfile
 from sqlite_rag.database import Database
 from sqlite_rag.settings import Settings
 
+
 class TestDatabase:
     def test_db_initialization(self):
         with tempfile.NamedTemporaryFile(suffix=".db") as tmp_db:
@@ -13,7 +14,7 @@ class TestDatabase:
 
         conn = sqlite3.connect(settings.db_path)
         Database.initialize(conn, settings)
-        
+
         # Check if the tables exist
         cursor = conn.cursor()
         cursor.execute(

@@ -1,9 +1,9 @@
+import math
 import sqlite3
 from typing import List
 
 from .models.chunk import Chunk
 from .settings import Settings
-import math
 
 
 class Chunker:
@@ -23,7 +23,7 @@ class Chunker:
         if text == "":
             return 0
         cursor = self._conn.execute("SELECT llm_token_count(?) AS count", (text,))
-        return cursor.fetchone()['count']
+        return cursor.fetchone()["count"]
 
     def _estimate_tokens_count(self, text: str) -> int:
         """Estimate token count more conservatively."""

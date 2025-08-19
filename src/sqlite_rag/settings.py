@@ -12,4 +12,3 @@ class Settings:
         self.chunk_overlap = 32  # Token overlap between chunks
 
         self.quantize_scan = True  # Whether to quantize the vector for faster search
-

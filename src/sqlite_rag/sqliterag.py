@@ -66,7 +66,6 @@ class SQLiteRag:
 
         self._logger.info(f"Processing {len(files_to_process)} files...")
         for file_path in files_to_process:
-            # TODO: include metadata extraction and mdx options (see our docsearch)
             content = FileReader.parse_file(file_path)
 
             uri = (

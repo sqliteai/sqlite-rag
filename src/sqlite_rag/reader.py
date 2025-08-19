@@ -48,7 +48,9 @@ class FileReader:
     def parse_file(path: Path) -> str:
         try:
             converter = MarkItDown()
-            return converter.convert(path, stream_info=StreamInfo(charset='utf8')).text_content
+            return converter.convert(
+                path, stream_info=StreamInfo(charset="utf8")
+            ).text_content
         except Exception as exc:
             raise ValueError(f"Failed to parse file {path}") from exc
 

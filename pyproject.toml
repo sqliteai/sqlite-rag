@@ -21,6 +21,9 @@ dev = [
     "pytest-cov",
     "black",
     "flake8",
+    "bandit",
+    "isort",
+    "pre-commit"
 ]
 
 [project.scripts]
