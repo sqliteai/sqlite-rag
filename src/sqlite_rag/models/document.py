@@ -17,12 +17,6 @@ class Document:
 
     chunks: list["Chunk"] = []
 
-    vec_rank: float | None = None
-    fts_rank: float | None = None
-    combined_rank: float | None = None
-    vec_distance: float | None = None
-    fts_score: float | None = None
-
     def hash(self) -> str:
         """Generate a hash for the document content"""
         return hashlib.blake2b(self.content.encode()).hexdigest()

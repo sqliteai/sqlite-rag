@@ -43,24 +43,25 @@ class Engine:
         document.chunks = chunks
         return document
 
-    # TODO: better to get a list of str and return a list of embeddings?
     def generate_embedding(self, chunks: list[Chunk]) -> list[Chunk]:
         """Generate embedding for the given text."""
         cursor = self._conn.cursor()
 
         for chunk in chunks:
             try:
-                cursor.execute("SELECT llm_embed_generate(?) AS embedding", (chunk.content,))
+                cursor.execute(
+                    "SELECT llm_embed_generate(?) AS embedding", (chunk.content,)
+                )
             except sqlite3.Error as e:
                 print(f"Error generating embedding for chunk\n: ```{chunk.content}```")
                 raise e
-            
+
             result = cursor.fetchone()
 
             if result is None:
                 raise RuntimeError("Failed to generate embedding.")
 
-            chunk.embedding = result['embedding']
+            chunk.embedding = result["embedding"]
 
         return chunks
 

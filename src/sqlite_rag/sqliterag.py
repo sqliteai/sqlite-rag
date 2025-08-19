@@ -33,7 +33,7 @@ class SQLiteRag:
         self._engine = Engine(self._conn, settings, chunker=self._chunker)
 
         self.ready = False
-    
+
     def _create_db_connection(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.settings.db_path)
         conn.row_factory = sqlite3.Row
@@ -47,12 +47,20 @@ class SQLiteRag:
 
         self.ready = True
 
-    def add(self, path: str, recursive: bool = False) -> int:
+    def add(
+        self,
+        path: str,
+        recursive: bool = False,
+        absolute_paths: bool = True,
+        metadata: dict = {},
+    ) -> int:
         """Add the file content into the database"""
         self._ensure_initialized()
 
         if not Path(path).exists():
             raise FileNotFoundError(f"{path} does not exist.")
+
+        parent = Path(path).parent
 
         files_to_process = FileReader.collect_files(Path(path), recursive=recursive)
 
@@ -60,8 +68,14 @@ class SQLiteRag:
         for file_path in files_to_process:
             # TODO: include metadata extraction and mdx options (see our docsearch)
             content = FileReader.parse_file(file_path)
-            document = Document(content=content, uri=str(file_path.absolute()))
-            
+
+            uri = (
+                str(file_path.absolute())
+                if absolute_paths
+                else str(file_path.relative_to(parent))
+            )
+            document = Document(content=content, uri=uri, metadata=metadata)
+
             exists = self._repository.document_exists_by_hash(document.hash())
             if exists:
                 self._logger.info(f"Unchanged: {file_path}")
@@ -72,6 +86,7 @@ class SQLiteRag:
 
             self._repository.add_document(document)
 
+        # TODO: when is it better to quantize? after each document?
         if self.settings.quantize_scan:
             self._engine.quantize()
 

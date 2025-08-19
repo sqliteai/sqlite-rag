@@ -1,13 +1,8 @@
 import sqlite3
-import tempfile
 
-from h11 import Data
-
-from sqlite_rag.database import Database
 from sqlite_rag.models.chunk import Chunk
 from sqlite_rag.models.document import Document
 from sqlite_rag.repository import Repository
-from sqlite_rag.settings import Settings
 
 
 class TestRepository:
@@ -120,9 +115,9 @@ class TestRepository:
 
         # Add a document
         doc = Document(
-            content="Test document content.", 
-            uri="test.txt", 
-            metadata={"author": "test"}
+            content="Test document content.",
+            uri="test.txt",
+            metadata={"author": "test"},
         )
         doc_id = repo.add_document(doc)
 
@@ -141,9 +136,9 @@ class TestRepository:
 
         # Add a document
         doc = Document(
-            content="Test document content.", 
-            uri="test.txt", 
-            metadata={"author": "test"}
+            content="Test document content.",
+            uri="test.txt",
+            metadata={"author": "test"},
         )
         repo.add_document(doc)
 
@@ -170,9 +165,9 @@ class TestRepository:
 
         # Add a document with chunks
         doc = Document(
-            content="Test document content.", 
-            uri="test.txt", 
-            metadata={"author": "test"}
+            content="Test document content.",
+            uri="test.txt",
+            metadata={"author": "test"},
         )
         doc.chunks = [
             Chunk(content="Chunk 1", embedding=b"\x00" * 384),
@@ -214,7 +209,7 @@ class TestRepository:
         doc = Document(
             content="Test document content.",
             uri="test.txt",
-            metadata={"author": "test"}
+            metadata={"author": "test"},
         )
         repo.add_document(doc)
 

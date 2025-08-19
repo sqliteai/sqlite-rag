@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -86,6 +87,80 @@ class TestSQLiteRag:
             chunk_count = cursor.fetchone()[0]
             assert chunk_count > 0
 
+    def test_add_with_absolute_paths_option_true(self, db_settings):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("This is a test document with absolute path option.")
+            temp_file_path = f.name
+
+        rag = SQLiteRag(db_settings)
+
+        rag.add(temp_file_path, absolute_paths=True)
+
+        conn = rag._conn
+        cursor = conn.execute("SELECT uri FROM documents")
+        doc = cursor.fetchone()
+        assert doc
+        assert doc[0] == str(Path(temp_file_path).absolute())
+
+    def test_add_with_absolute_paths_option_false(self, db_settings):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("This is a test document with relative path option.")
+            temp_file_path = Path(f.name)
+
+        rag = SQLiteRag(db_settings)
+
+        rag.add(str(temp_file_path), absolute_paths=False)
+
+        conn = rag._conn
+        cursor = conn.execute("SELECT uri FROM documents")
+        doc = cursor.fetchone()
+        assert doc
+        assert doc[0] == str(temp_file_path.relative_to(temp_file_path.parent))
+
+    def test_add_file_with_metadata(self, db_settings):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("This is a test document with metadata.")
+            temp_file_path = f.name
+
+        rag = SQLiteRag(db_settings)
+
+        metadata = {"author": "test", "date": "2023-10-01"}
+
+        rag.add(
+            temp_file_path,
+            metadata=metadata,
+        )
+
+        conn = rag._conn
+        cursor = conn.execute("SELECT content, metadata FROM documents")
+        doc = cursor.fetchone()
+        assert doc
+        assert doc[0] == "This is a test document with metadata."
+        assert doc[1] == json.dumps(metadata)
+
+    def test_add_unchanged_file_twice(self, db_settings):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("This is a test document that will be added twice.")
+            temp_file_path = f.name
+
+        rag = SQLiteRag(db_settings)
+
+        # Add the file once
+        rag.add(temp_file_path)
+
+        conn = rag._conn
+        cursor = conn.execute("SELECT COUNT(*) FROM documents")
+        doc_count = cursor.fetchone()[0]
+        assert doc_count == 1
+
+        # Add the same file again
+        rag.add(temp_file_path)
+
+        # Still should be only one document
+        cursor = conn.execute("SELECT COUNT(*) FROM documents")
+        doc_count = cursor.fetchone()[0]
+        assert doc_count == 1
+
     def test_add_text(self, db_settings):
         rag = SQLiteRag(db_settings)
 
@@ -121,6 +196,25 @@ class TestSQLiteRag:
         cursor = conn.execute("SELECT COUNT(*) FROM chunks")
         chunk_count = cursor.fetchone()[0]
         assert chunk_count > 0
+
+    def test_add_text_with_metadata(self, db_settings):
+        rag = SQLiteRag(db_settings)
+
+        metadata = {"author": "test", "date": "2023-10-01"}
+
+        rag.add_text(
+            "This is a test document content with metadata.",
+            uri="test_doc_with_metadata.txt",
+            metadata=metadata,
+        )
+
+        conn = rag._conn
+        cursor = conn.execute("SELECT content, uri, metadata FROM documents")
+        doc = cursor.fetchone()
+        assert doc
+        assert doc[0] == "This is a test document content with metadata."
+        assert doc[1] == "test_doc_with_metadata.txt"
+        assert doc[2] == json.dumps(metadata)
 
     def test_list_documents(self, db_settings):
         rag = SQLiteRag(db_settings)

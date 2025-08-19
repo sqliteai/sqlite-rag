@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import shlex
 import sys
 from typing import Optional
@@ -31,17 +32,47 @@ def add(
     recursive: bool = typer.Option(
         False, "-r", "--recursive", help="Recursively add all files in directories"
     ),
+    absolute_paths: bool = typer.Option(
+        False,
+        "--absolute-paths",
+        help="Store absolute paths instead of relative paths",
+        is_flag=True,
+    ),
+    metadata: Optional[str] = typer.Option(
+        None,
+        "--metadata",
+        help="Optional metadata in JSON format to associate with the document",
+        metavar="JSON",
+        show_default=False,
+        prompt="Metadata (JSON format, e.g. {'author': 'John Doe', 'date': '2023-10-01'}'",
+    ),
 ):
     """Add a file path to the database"""
     rag = SQLiteRag()
-    rag.add(path, recursive=recursive)
+    rag.add(
+        path,
+        recursive=recursive,
+        absolute_paths=absolute_paths,
+        metadata=json.loads(metadata or "{}"),
+    )
 
 
 @app.command()
-def add_text(text: str, uri: Optional[str] = None):
+def add_text(
+    text: str,
+    uri: Optional[str] = None,
+    metadata: Optional[str] = typer.Option(
+        None,
+        "--metadata",
+        help="Optional metadata in JSON format to associate with the document",
+        metavar="JSON",
+        show_default=False,
+        prompt="Metadata (JSON format, e.g. {'author': 'John Doe', 'date': '2023-10-01'}'",
+    ),
+):
     """Add a text to the database"""
     rag = SQLiteRag()
-    rag.add_text(text, uri=uri, metadata={})
+    rag.add_text(text, uri=uri, metadata=json.loads(metadata or "{}"))
 
 
 @app.command("list")
@@ -86,7 +117,7 @@ def remove(
         raise typer.Exit(1)
 
     # Show document details
-    typer.echo(f"Found document:")
+    typer.echo("Found document:")
     typer.echo(f"ID: {document.id}")
     typer.echo(f"URI: {document.uri or 'N/A'}")
     typer.echo(
@@ -165,7 +196,11 @@ def reset(
 
 @app.command()
 def search(
-    query: str, limit: int = typer.Option(10, help="Number of results to return")
+    query: str,
+    limit: int = typer.Option(10, help="Number of results to return"),
+    debug: bool = typer.Option(
+        False, "-d", "--debug", help="Print extra debug information"
+    ),
 ):
     """Search for documents using hybrid vector + full-text search"""
     rag = SQLiteRag()
@@ -176,12 +211,56 @@ def search(
         return
 
     typer.echo(f"Found {len(results)} documents:")
-    typer.echo(f"{'Pos':<4} {'Preview':<60} {'URI':<50}")
-    typer.echo("-" * 116)
-    for idx, doc in enumerate(results, 1):
-        snippet = f"{doc.snippet[:57]!r}" + "..." if len(doc.snippet) > 60 else f"{doc.snippet!r}"
-        uri = doc.document.uri or "N/A"
-        typer.echo(f"{idx:<4} {snippet:<60} {uri:<50}")
+
+    if debug:
+        # Enhanced debug table with better formatting
+        typer.echo(
+            f"{'#':<3} {'Preview':<55} {'URI':<35} {'C.Rank':<33} {'V.Rank':<8} {'FTS.Rank':<9} {'V.Dist':<18} {'FTS.Score':<18}"
+        )
+        typer.echo("─" * 180)
+
+        for idx, doc in enumerate(results, 1):
+            # Clean snippet display
+            snippet = doc.snippet.replace("\n", " ").replace("\r", "")
+            if len(snippet) > 52:
+                snippet = snippet[:49] + "..."
+
+            # Clean URI display
+            uri = doc.document.uri or "N/A"
+            if len(uri) > 32:
+                uri = "..." + uri[-29:]
+
+            # Format debug values with proper precision
+            c_rank = (
+                f"{doc.combined_rank:.17f}" if doc.combined_rank is not None else "N/A"
+            )
+            v_rank = str(doc.vec_rank) if doc.vec_rank is not None else "N/A"
+            fts_rank = str(doc.fts_rank) if doc.fts_rank is not None else "N/A"
+            v_dist = (
+                f"{doc.vec_distance:.6f}" if doc.vec_distance is not None else "N/A"
+            )
+            fts_score = f"{doc.fts_score:.6f}" if doc.fts_score is not None else "N/A"
+
+            typer.echo(
+                f"{idx:<3} {snippet:<55} {uri:<35} {c_rank:<33} {v_rank:<8} {fts_rank:<9} {v_dist:<18} {fts_score:<18}"
+            )
+    else:
+        # Clean simple table for normal view
+        typer.echo(f"{'#':<3} {'Preview':<60} {'URI':<40}")
+        typer.echo("─" * 105)
+
+        for idx, doc in enumerate(results, 1):
+            # Clean snippet display
+            snippet = doc.snippet.replace("\n", " ").replace("\r", "")
+            if len(snippet) > 57:
+                snippet = snippet[:54] + "..."
+
+            # Clean URI display
+            uri = doc.document.uri or "N/A"
+            if len(uri) > 37:
+                uri = "..." + uri[-34:]
+
+            typer.echo(f"{idx:<3} {snippet:<60} {uri:<40}")
 
 
 def repl_mode():

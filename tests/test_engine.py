@@ -1,21 +1,8 @@
-import pytest
-
 from sqlite_rag.chunker import Chunker
 from sqlite_rag.engine import Engine
 from sqlite_rag.models.chunk import Chunk
 from sqlite_rag.models.document import Document
 from sqlite_rag.repository import Repository
-
-
-@pytest.fixture
-def engine(db_conn):
-    conn, settings = db_conn
-
-    engine = Engine(conn, settings, chunker=Chunker(conn, settings))
-    engine.load_model()
-    engine.quantize()
-
-    return engine
 
 
 class TestEngine:
