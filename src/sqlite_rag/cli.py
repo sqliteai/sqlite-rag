@@ -27,6 +27,12 @@ cli = CLI(app)
 
 
 @app.command()
+def set(settings: Optional[str] = typer.Argument(None)):
+    """Set the model and database path"""
+    pass
+
+
+@app.command()
 def add(
     path: str = typer.Argument(..., help="File or directory path to add"),
     recursive: bool = typer.Option(
@@ -44,11 +50,10 @@ def add(
         help="Optional metadata in JSON format to associate with the document",
         metavar="JSON",
         show_default=False,
-        prompt="Metadata (JSON format, e.g. {'author': 'John Doe', 'date': '2023-10-01'}'",
     ),
 ):
     """Add a file path to the database"""
-    rag = SQLiteRag()
+    rag = SQLiteRag.create()
     rag.add(
         path,
         recursive=recursive,
@@ -71,14 +76,14 @@ def add_text(
     ),
 ):
     """Add a text to the database"""
-    rag = SQLiteRag()
+    rag = SQLiteRag.create()
     rag.add_text(text, uri=uri, metadata=json.loads(metadata or "{}"))
 
 
 @app.command("list")
 def list_documents():
     """List all documents in the database"""
-    rag = SQLiteRag()
+    rag = SQLiteRag.create()
     documents = rag.list_documents()
 
     if not documents:
@@ -108,7 +113,7 @@ def remove(
     yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt"),
 ):
     """Remove document by path or UUID"""
-    rag = SQLiteRag()
+    rag = SQLiteRag.create()
 
     # Find the document first
     document = rag.find_document(identifier)
@@ -151,7 +156,7 @@ def rebuild(
     )
 ):
     """Rebuild embeddings and full-text index"""
-    rag = SQLiteRag()
+    rag = SQLiteRag.create()
 
     typer.echo("Rebuild process...")
 
@@ -169,14 +174,13 @@ def reset(
     yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt")
 ):
     """Reset/clear the entire database"""
-    rag = SQLiteRag()
+    rag = SQLiteRag.create()
 
     # Show warning and ask for confirmation unless -y flag is used
     if not yes:
         typer.echo(
             "WARNING: This will permanently delete all documents and data from the database!"
         )
-        typer.echo(f"Database file: {rag.settings.db_path}")
         typer.echo()
         confirm = typer.confirm("Are you sure you want to reset the entire database?")
         if not confirm:
@@ -203,7 +207,7 @@ def search(
     ),
 ):
     """Search for documents using hybrid vector + full-text search"""
-    rag = SQLiteRag()
+    rag = SQLiteRag.create()
     results = rag.search(query, top_k=limit)
 
     if not results:

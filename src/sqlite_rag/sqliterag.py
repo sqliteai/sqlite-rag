@@ -11,22 +11,15 @@ from .engine import Engine
 from .models.document import Document
 from .reader import FileReader
 from .repository import Repository
-from .settings import Settings
+from .settings import Settings, SettingsManager
 
 
 class SQLiteRag:
-    def __init__(self, settings: Optional[Settings] = None):
-        if settings is None:
-            # TODO: load defaults or from the database
-            settings = Settings(
-                model_path_or_name="./Qwen3-Embedding-0.6B-Q8_0.gguf",
-                db_path="sqliterag.db",
-            )
-
+    def __init__(self, connection: sqlite3.Connection, settings: Settings):
         self.settings = settings
         self._logger = Logger()
 
-        self._conn = self._create_db_connection()
+        self._conn = connection
 
         self._repository = Repository(self._conn, settings)
         self._chunker = Chunker(self._conn, settings)
@@ -34,18 +27,44 @@ class SQLiteRag:
 
         self.ready = False
 
-    def _create_db_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.settings.db_path)
-        conn.row_factory = sqlite3.Row
-
-        return conn
-
     def _ensure_initialized(self):
         if not self.ready:
-            Database.initialize(self._conn, self.settings)
             self._engine.load_model()
 
         self.ready = True
+
+    @staticmethod
+    def create(
+        db_path: str = "./sqliterag.sqlite", settings: Optional[Settings] = None
+    ) -> "SQLiteRag":
+        """Create a new SQLiteRag instance with the given settings.
+
+        It initializes the database connection and prepares the environment.
+        If no new settings are provided, it uses the default settings or load
+        the settings used in the last execution."""
+
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+
+        # If the database already exists, load the existing settings
+        settings_manager = SettingsManager(conn)
+        current_settings = settings_manager.load_settings()
+        if not current_settings:
+            current_settings = Settings()
+            settings_manager.store(current_settings)
+
+        if settings:
+            if settings_manager.has_critical_changes(settings, current_settings):
+                raise ValueError(
+                    "Critical settings changes detected. Please reset the database."
+                )
+
+            # Update new settings
+            settings_manager.store(settings)
+
+        Database.initialize(conn, current_settings)
+
+        return SQLiteRag(conn, current_settings)
 
     def add(
         self,
@@ -64,9 +83,14 @@ class SQLiteRag:
 
         files_to_process = FileReader.collect_files(Path(path), recursive=recursive)
 
+        processed = 0
         self._logger.info(f"Processing {len(files_to_process)} files...")
         for file_path in files_to_process:
             content = FileReader.parse_file(file_path)
+
+            if not content:
+                self._logger.warning(f"Skipping empty file: {file_path}")
+                continue
 
             uri = (
                 str(file_path.absolute())
@@ -85,11 +109,13 @@ class SQLiteRag:
 
             self._repository.add_document(document)
 
+            processed += 1
+
         # TODO: when is it better to quantize? after each document?
         if self.settings.quantize_scan:
             self._engine.quantize()
 
-        return len(files_to_process)
+        return processed
 
     def add_text(
         self, text: str, uri: Optional[str] = None, metadata: dict = {}
@@ -190,7 +216,7 @@ class SQLiteRag:
 
     def reset(self) -> bool:
         """Reset/clear the entire database by deleting and recreating it"""
-        db_path = self.settings.db_path
+        db_path = self._conn.execute("PRAGMA database_list;").fetchone()[2]
 
         try:
             # Close the database connection
@@ -200,17 +226,6 @@ class SQLiteRag:
             if Path(db_path).exists():
                 Path(db_path).unlink()
                 self._logger.info(f"Deleted database file: {db_path}")
-
-            # Recreate the database connection and initialize
-            self._conn = self._create_db_connection()
-
-            # Reinitialize components with new connection
-            self._repository = Repository(self._conn, self.settings)
-            self._chunker = Chunker(self._conn, self.settings)
-            self._engine = Engine(self._conn, self.settings, chunker=self._chunker)
-
-            # Reset ready flag so initialization happens on next use
-            self.ready = False
 
             return True
 
@@ -223,3 +238,9 @@ class SQLiteRag:
         self._ensure_initialized()
 
         return self._engine.search(query, limit=top_k)
+
+    def destroy(self) -> None:
+        """Free up resources"""
+        if self._conn:
+            self._engine.close()
+            self._conn.close()

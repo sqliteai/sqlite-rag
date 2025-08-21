@@ -1,5 +1,3 @@
-import sqlite3
-
 from sqlite_rag.models.chunk import Chunk
 from sqlite_rag.models.document import Document
 from sqlite_rag.repository import Repository
@@ -20,16 +18,12 @@ class TestRepository:
         )
 
         # Verify the document was added
-        conn = sqlite3.connect(settings.db_path)
-        cursor = conn.execute(
-            "SELECT content, uri, metadata FROM documents WHERE id=?", (doc_id,)
-        )
-        row = cursor.fetchone()
+        document = repo.find_document_by_id_or_uri(doc_id)
 
-        assert row is not None, "Document was not added to the database."
-        assert row[0] == "This is a test document content."
-        assert row[1] == "test_doc.txt"
-        assert row[2] == '{"author": "test"}'
+        assert document is not None, "Document was not added to the database."
+        assert document.content == "This is a test document content."
+        assert document.uri == "test_doc.txt"
+        assert document.metadata == {"author": "test"}
 
     def test_add_document_with_chunks(self, db_conn):
         conn, settings = db_conn
@@ -50,19 +44,15 @@ class TestRepository:
         doc_id = repo.add_document(doc)
 
         # Verify the document and chunks were added
-        conn = sqlite3.connect(settings.db_path)
+        document = repo.find_document_by_id_or_uri(doc_id)
+
+        assert document is not None, "Document was not added to the database."
+        assert document.content == "This is a test document with chunks."
+        assert document.uri == "test_doc_with_chunks.txt"
+        assert document.metadata == {"author": "test"}
+
         cursor = conn.execute(
-            "SELECT content, uri, metadata FROM documents WHERE id=?", (doc_id,)
-        )
-        row = cursor.fetchone()
-
-        assert row is not None, "Document was not added to the database."
-        assert row[0] == "This is a test document with chunks."
-        assert row[1] == "test_doc_with_chunks.txt"
-        assert row[2] == '{"author": "test"}'
-
-        cursor.execute(
-            "SELECT content, embedding FROM chunks WHERE document_id=?", (doc_id,)
+            "SELECT content, embedding FROM chunks WHERE document_id = ?", (doc_id,)
         )
         chunk_rows = cursor.fetchall()
 

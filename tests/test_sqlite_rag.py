@@ -7,7 +7,7 @@ from sqlite_rag import SQLiteRag
 
 
 class TestSQLiteRag:
-    def test_add_simple_text_file(self, db_settings):
+    def test_add_simple_text_file(self):
         #  test file
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write(
@@ -15,7 +15,7 @@ class TestSQLiteRag:
             )
             temp_file_path = f.name
 
-        rag = SQLiteRag(db_settings)
+        rag = SQLiteRag.create(":memory:")
 
         rag.add(temp_file_path)
 
@@ -28,21 +28,21 @@ class TestSQLiteRag:
         chunk_count = cursor.fetchone()[0]
         assert chunk_count > 0
 
-    def test_add_unsupported_file_type(self, db_settings):
+    def test_add_unsupported_file_type(self):
         # Create a temporary file with an unsupported extension
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".unsupported", delete=False
         ) as f:
             f.write("This is a test document with unsupported file type.")
 
-        rag = SQLiteRag(db_settings)
+            rag = SQLiteRag.create(":memory:")
 
-        # Attempt to add the unsupported file
-        processed = rag.add(f.name)
+            # Attempt to add the unsupported file
+            processed = rag.add(f.name)
 
-        assert processed == 0
+            assert processed == 0
 
-    def test_add_directory(self, db_settings):
+    def test_add_directory(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             file1 = Path(temp_dir) / "file1.txt"
             file2 = Path(temp_dir) / "file2.txt"
@@ -50,20 +50,20 @@ class TestSQLiteRag:
             file1.write_text("This is the first test document.")
             file2.write_text("This is the second test document.")
 
-            rag = SQLiteRag(db_settings)
+            rag = SQLiteRag.create(db_path=":memory:")
 
             rag.add(temp_dir)
 
             conn = rag._conn
-            cursor = conn.execute("SELECT COUNT(*) FROM documents")
+            cursor = conn.execute("SELECT COUNT(*) AS total FROM documents")
             doc_count = cursor.fetchone()[0]
             assert doc_count == 2
 
-            cursor = conn.execute("SELECT COUNT(*) FROM chunks")
+            cursor = conn.execute("SELECT COUNT(*) AS total FROM chunks")
             chunk_count = cursor.fetchone()[0]
             assert chunk_count > 0
 
-    def test_add_directory_recursively(self, db_settings):
+    def test_add_directory_recursively(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             sub_dir = Path(temp_dir) / "subdir"
             sub_dir.mkdir()
@@ -74,7 +74,7 @@ class TestSQLiteRag:
             file1.write_text("This is the first test document.")
             file2.write_text("This is the second test document in a subdirectory.")
 
-            rag = SQLiteRag(db_settings)
+            rag = SQLiteRag.create(":memory:")
 
             rag.add(temp_dir, recursive=True)
 
@@ -87,12 +87,12 @@ class TestSQLiteRag:
             chunk_count = cursor.fetchone()[0]
             assert chunk_count > 0
 
-    def test_add_with_absolute_paths_option_true(self, db_settings):
+    def test_add_with_absolute_paths_option_true(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("This is a test document with absolute path option.")
             temp_file_path = f.name
 
-        rag = SQLiteRag(db_settings)
+        rag = SQLiteRag.create(":memory:")
 
         rag.add(temp_file_path, absolute_paths=True)
 
@@ -102,12 +102,12 @@ class TestSQLiteRag:
         assert doc
         assert doc[0] == str(Path(temp_file_path).absolute())
 
-    def test_add_with_absolute_paths_option_false(self, db_settings):
+    def test_add_with_absolute_paths_option_false(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("This is a test document with relative path option.")
             temp_file_path = Path(f.name)
 
-        rag = SQLiteRag(db_settings)
+        rag = SQLiteRag.create(":memory:")
 
         rag.add(str(temp_file_path), absolute_paths=False)
 
@@ -117,12 +117,12 @@ class TestSQLiteRag:
         assert doc
         assert doc[0] == str(temp_file_path.relative_to(temp_file_path.parent))
 
-    def test_add_file_with_metadata(self, db_settings):
+    def test_add_file_with_metadata(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("This is a test document with metadata.")
             temp_file_path = f.name
 
-        rag = SQLiteRag(db_settings)
+        rag = SQLiteRag.create(":memory:")
 
         metadata = {"author": "test", "date": "2023-10-01"}
 
@@ -138,12 +138,21 @@ class TestSQLiteRag:
         assert doc[0] == "This is a test document with metadata."
         assert doc[1] == json.dumps(metadata)
 
-    def test_add_unchanged_file_twice(self, db_settings):
+    def test_add_empty_file(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            temp_file_path = f.name
+
+        rag = SQLiteRag.create(":memory:")
+        processed = rag.add(temp_file_path)
+
+        assert processed == 0
+
+    def test_add_unchanged_file_twice(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("This is a test document that will be added twice.")
             temp_file_path = f.name
 
-        rag = SQLiteRag(db_settings)
+        rag = SQLiteRag.create(":memory:")
 
         # Add the file once
         rag.add(temp_file_path)
@@ -161,8 +170,8 @@ class TestSQLiteRag:
         doc_count = cursor.fetchone()[0]
         assert doc_count == 1
 
-    def test_add_text(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_add_text(self):
+        rag = SQLiteRag.create(":memory:")
 
         rag.add_text(
             "This is a test document content with some text to be indexed.",
@@ -182,8 +191,8 @@ class TestSQLiteRag:
         chunk_count = cursor.fetchone()[0]
         assert chunk_count > 0
 
-    def test_add_text_without_options(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_add_text_without_options(self):
+        rag = SQLiteRag.create(":memory:")
 
         rag.add_text("This is a test document content without options.")
 
@@ -197,8 +206,8 @@ class TestSQLiteRag:
         chunk_count = cursor.fetchone()[0]
         assert chunk_count > 0
 
-    def test_add_text_with_metadata(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_add_text_with_metadata(self):
+        rag = SQLiteRag.create(":memory:")
 
         metadata = {"author": "test", "date": "2023-10-01"}
 
@@ -216,8 +225,8 @@ class TestSQLiteRag:
         assert doc[1] == "test_doc_with_metadata.txt"
         assert doc[2] == json.dumps(metadata)
 
-    def test_list_documents(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_list_documents(self):
+        rag = SQLiteRag.create(":memory:")
 
         rag.add_text("Document 1 content.")
         rag.add_text("Document 2 content.")
@@ -227,8 +236,8 @@ class TestSQLiteRag:
         assert documents[0].content == "Document 1 content."
         assert documents[1].content == "Document 2 content."
 
-    def test_find_document_by_id(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_find_document_by_id(self):
+        rag = SQLiteRag.create(":memory:")
 
         rag.add_text(
             "Test document content.", uri="test.txt", metadata={"author": "test"}
@@ -246,8 +255,8 @@ class TestSQLiteRag:
         assert found_doc.uri == "test.txt"
         assert found_doc.metadata == {"author": "test"}
 
-    def test_find_document_by_uri(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_find_document_by_uri(self):
+        rag = SQLiteRag.create(":memory:")
 
         rag.add_text(
             "Test document content.", uri="test.txt", metadata={"author": "test"}
@@ -261,15 +270,15 @@ class TestSQLiteRag:
         assert found_doc.uri == "test.txt"
         assert found_doc.metadata == {"author": "test"}
 
-    def test_find_document_not_found(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_find_document_not_found(self):
+        rag = SQLiteRag.create(":memory:")
 
         found_doc = rag.find_document("nonexistent")
 
         assert found_doc is None
 
-    def test_remove_document_by_id(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_remove_document_by_id(self):
+        rag = SQLiteRag.create(":memory:")
 
         rag.add_text(
             "Test document content.", uri="test.txt", metadata={"author": "test"}
@@ -290,8 +299,8 @@ class TestSQLiteRag:
         documents = rag.list_documents()
         assert len(documents) == 0
 
-    def test_remove_document_by_uri(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_remove_document_by_uri(self):
+        rag = SQLiteRag.create(":memory:")
 
         rag.add_text(
             "Test document content.", uri="test.txt", metadata={"author": "test"}
@@ -310,15 +319,15 @@ class TestSQLiteRag:
         documents = rag.list_documents()
         assert len(documents) == 0
 
-    def test_remove_document_not_found(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_remove_document_not_found(self):
+        rag = SQLiteRag.create(":memory:")
 
         success = rag.remove_document("nonexistent")
 
         assert success is False
 
-    def test_remove_document_with_chunks(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_remove_document_with_chunks(self):
+        rag = SQLiteRag.create(":memory:")
 
         # Add document that will create chunks
         rag.add_text(
@@ -350,7 +359,7 @@ class TestSQLiteRag:
         chunk_count = cursor.fetchone()[0]
         assert chunk_count == 0
 
-    def test_rebuild_with_existing_files(self, db_settings):
+    def test_rebuild_with_existing_files(self):
         """Test rebuild with files that still exist"""
         # Arrange
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f1:
@@ -361,7 +370,7 @@ class TestSQLiteRag:
             f2.write("Original content for file 2")
             file2_path = f2.name
 
-        rag = SQLiteRag(db_settings)
+        rag = SQLiteRag.create(":memory:")
 
         rag.add(file1_path)
         rag.add(file2_path)
@@ -403,7 +412,7 @@ class TestSQLiteRag:
         assert "Modified content for file 1" in found_file1.content
         assert "Modified content for file 2" in found_file2.content
 
-    def test_rebuild_with_missing_files(self, db_settings):
+    def test_rebuild_with_missing_files(self):
         """Test rebuild when some files are missing"""
         # Arrange
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f1:
@@ -414,7 +423,7 @@ class TestSQLiteRag:
             f2.write("Content for file 2")
             file2_path = f2.name
 
-        rag = SQLiteRag(db_settings)
+        rag = SQLiteRag.create(":memory:")
 
         # Add files
         rag.add(file1_path)
@@ -436,7 +445,7 @@ class TestSQLiteRag:
         documents = rag.list_documents()
         assert len(documents) == 2
 
-    def test_rebuild_remove_missing_files(self, db_settings):
+    def test_rebuild_remove_missing_files(self):
         """Test rebuild with remove_missing=True"""
         # Arrange
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f1:
@@ -447,7 +456,7 @@ class TestSQLiteRag:
             f2.write("Content for file 2")
             file2_path = f2.name
 
-        rag = SQLiteRag(db_settings)
+        rag = SQLiteRag.create(":memory:")
 
         rag.add(file1_path)
         rag.add(file2_path)
@@ -469,9 +478,9 @@ class TestSQLiteRag:
         assert len(documents) == 1
         assert documents[0].uri == file1_path
 
-    def test_rebuild_text_documents(self, db_settings):
+    def test_rebuild_text_documents(self):
         """Test rebuild with text documents (no URI)"""
-        rag = SQLiteRag(db_settings)
+        rag = SQLiteRag.create(":memory:")
 
         rag.add_text("Text document 1 content")
 
@@ -485,8 +494,10 @@ class TestSQLiteRag:
         documents = rag.list_documents()
         assert len(documents) == 1
 
-    def test_reset_database(self, db_settings):
-        rag = SQLiteRag(db_settings)
+    def test_reset_database(self):
+        temp_file_path = os.path.join(tempfile.mkdtemp(), "something")
+
+        rag = SQLiteRag.create(temp_file_path)
 
         rag.add_text("Test document 1")
         rag.add_text("Test document 2", uri="test.txt")
@@ -497,24 +508,4 @@ class TestSQLiteRag:
         success = rag.reset()
         assert success is True
 
-        documents = rag.list_documents()
-        assert len(documents) == 0
-
-    def test_reset_allows_adding_data_after(self, db_settings):
-        """Test that database is fully functional after reset"""
-        rag = SQLiteRag(db_settings)
-
-        rag.add_text("Initial document")
-
-        success = rag.reset()
-        assert success is True
-
-        rag.add_text("Document after reset", uri="after_reset.txt")
-
-        documents = rag.list_documents()
-        assert len(documents) == 1
-        assert documents[0].content == "Document after reset"
-        assert documents[0].uri == "after_reset.txt"
-
-        results = rag.search("reset")
-        assert len(results) > 0
+        assert not Path(temp_file_path).exists()

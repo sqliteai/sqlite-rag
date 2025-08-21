@@ -12,29 +12,16 @@ from sqlite_rag.settings import Settings
 @pytest.fixture
 def db_conn():
     with tempfile.NamedTemporaryFile(suffix=".db") as tmp_db:
-        settings = Settings(
-            model_path_or_name="./Qwen3-Embedding-0.6B-Q8_0.gguf",
-            db_path=tmp_db.name,
-        )
+        settings = Settings()
 
-    conn = sqlite3.connect(settings.db_path)
-    conn.row_factory = sqlite3.Row
+        conn = sqlite3.connect(tmp_db.name)
+        conn.row_factory = sqlite3.Row
 
-    Database.initialize(conn, settings)
+        Database.initialize(conn, settings)
 
-    yield conn, settings
+        yield conn, settings
 
-    conn.close()
-
-
-@pytest.fixture
-def db_settings() -> Settings:
-    with tempfile.NamedTemporaryFile(suffix=".db") as tmp_db:
-        settings = Settings(
-            model_path_or_name="./Qwen3-Embedding-0.6B-Q8_0.gguf",
-            db_path=tmp_db.name,
-        )
-    return settings
+        conn.close()
 
 
 @pytest.fixture

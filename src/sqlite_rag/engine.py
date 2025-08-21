@@ -80,7 +80,8 @@ class Engine:
         query_embedding = self.generate_embedding([Chunk(content=query)])[0].embedding
 
         # Clean up and split into words
-        query = " ".join(re.findall(r"\b\w+\b", query.lower()))
+        # '*' is used to match while typing
+        query = " ".join(re.findall(r"\b\w+\b", query.lower())) + "*"
 
         cursor.execute(
             # TODO: use vector_convert_XXX to convert the query to the correct type
@@ -137,8 +138,7 @@ class Engine:
             ;
             """,
             {
-                # '*' is used to match while typing
-                "query": query + "*",
+                "query": query,
                 "query_embedding": query_embedding,
                 "k": limit,
                 # TODO: move to settings or costants
@@ -165,3 +165,12 @@ class Engine:
             )
             for row in rows
         ]
+
+    def close(self):
+        """Close the database connection."""
+        try:
+            self._conn.execute("SELECT llm_model_free();")
+        except sqlite3.ProgrammingError:
+            # When connection is already closed the model
+            # is already freed.
+            pass

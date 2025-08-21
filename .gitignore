@@ -1,5 +1,6 @@
 semsearch/
 docs/
+samples/headlines
 
 # LLM models
 *.gguf
@@ -63,7 +64,7 @@ dmypy.json
 # SQLite database files
 *.db
 *.sqlite3
-*.so
+#*.so
 
 # Environment variables
 .env

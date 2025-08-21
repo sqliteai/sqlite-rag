@@ -7,6 +7,7 @@ from sqlite_rag.models.chunk import Chunk
 
 
 class TestEngine:
+    @pytest.mark.slow
     def test_stress_embedding_generation(self, engine):
         """Test embedding generation with a large number of chunks
         to not fail and to never generate duplicated embeddings."""

@@ -1,14 +1,88 @@
+import json
+import sqlite3
+from dataclasses import asdict, dataclass, fields
+
+
+@dataclass
 class Settings:
-    def __init__(self, model_path_or_name: str, db_path: str = "sqliterag.db"):
-        self.model_path_or_name = model_path_or_name
-        self.db_path = db_path
+    model_path_or_name: str = (
+        "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf"
+    )
+    model_config: str = "n_ctx=384"
 
-        self.embedding_dim = 384
-        self.vector_type = "FLOAT32"
+    embedding_dim: int = 384
+    vector_type: str = "FLOAT32"
+    other_vector_config: str = "distance=cosine"  # e.g. distance=metric,other=value,...
 
-        self.model_config = "n_ctx=384"  # See: https://github.com/sqliteai/sqlite-ai/blob/e172b9c9b9d76435be635d1e02c1e88b3681cc6e/src/sqlite-ai.c#L51-L57
+    chunk_size: int = 12000
+    # Token overlap between chunks
+    chunk_overlap: int = 1200
 
-        self.chunk_size = 256  # Maximum tokens per chunk
-        self.chunk_overlap = 32  # Token overlap between chunks
+    # Whether to quantize the vector for faster search
+    quantize_scan: bool = True
 
-        self.quantize_scan = True  # Whether to quantize the vector for faster search
+
+class SettingsManager:
+    def __init__(self, connection: sqlite3.Connection):
+        self.connection = connection
+        self._ensure_table_exists()
+
+    def _ensure_table_exists(self):
+        cursor = self.connection.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS settings (
+                id TEXT PRIMARY KEY,
+                settings JSON NOT NULL
+            );
+        """
+        )
+        self.connection.commit()
+
+    def load_settings(self) -> Settings | None:
+        cursor = self.connection.cursor()
+
+        cursor.execute("SELECT settings FROM settings LIMIT 1")
+        row = cursor.fetchone()
+
+        if not row:
+            return None
+
+        current_settings = json.loads(row[0])
+
+        # Start from defaults, update with values from db (ignore extra keys)
+        defaults = Settings()
+        valid_keys = {f.name for f in fields(Settings)}
+        filtered = {k: v for k, v in current_settings.items() if k in valid_keys}
+
+        # Use defaults as base, update with valid properties
+        settings_dict = {**asdict(defaults), **filtered}
+        return Settings(**settings_dict)
+
+    def store(self, settings: Settings):
+        cursor = self.connection.cursor()
+
+        settings_json = json.dumps(asdict(settings))
+
+        # Upsert the settings
+        cursor.execute(
+            """
+            INSERT INTO settings (id, settings)
+            VALUES ('1', ?)
+            ON CONFLICT(id) DO UPDATE SET settings = excluded.settings;
+        """,
+            (settings_json,),
+        )
+
+        self.connection.commit()
+        return settings
+
+    def has_critical_changes(
+        self, new_settings: Settings, current_settings: Settings
+    ) -> bool:
+        """Check if the new settings have critical changes compared to the current settings."""
+        return (
+            new_settings.model_path_or_name != current_settings.model_path_or_name
+            or new_settings.embedding_dim != current_settings.embedding_dim
+            or new_settings.vector_type != current_settings.vector_type
+        )
