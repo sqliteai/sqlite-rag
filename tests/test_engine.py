@@ -130,3 +130,60 @@ class TestEngine:
 
         assert len(results) > 0
         assert doc1_id == results[0].document.id
+
+    def test_search_without_quantization(self, db_conn):
+        # Arrange
+        conn, settings = db_conn
+        settings.quantize_scan = False
+
+        engine = Engine(conn, settings, Chunker(conn, settings))
+        engine.load_model()
+
+        doc = Document(
+            content="The quick brown fox jumps over the lazy dog.",
+            uri="document1.txt",
+        )
+
+        engine.process(doc)
+
+        repository = Repository(conn, settings)
+        doc_id = repository.add_document(doc)
+
+        # Act
+        results = engine.search("wood lumberjack")
+
+        assert len(results) > 0
+        assert doc_id == results[0].document.id
+
+    def test_search_exact_match(self, db_conn):
+        conn, settings = db_conn
+        # cosin distance for searching embedding is exact 0.0 when strings match
+        settings.other_vector_config = "distance=cosine"
+
+        engine = Engine(conn, settings, Chunker(conn, settings))
+        engine.load_model()
+
+        doc1 = Document(
+            content="The quick brown fox jumps over the lazy dog",
+            uri="document1.txt",
+        )
+        doc2 = Document(
+            content="How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
+            uri="document2.txt",
+        )
+
+        engine.process(doc1)
+        engine.process(doc2)
+
+        repository = Repository(conn, settings)
+        doc1_id = repository.add_document(doc1)
+        repository.add_document(doc2)
+
+        engine.quantize()
+
+        # Act
+        results = engine.search("The quick brown fox jumps over the lazy dog")
+
+        assert len(results) > 0
+        assert doc1_id == results[0].document.id
+        assert 0.0 == results[0].vec_distance

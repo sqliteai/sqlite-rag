@@ -1,5 +1,6 @@
+import importlib
+import importlib.resources
 import sqlite3
-from pathlib import Path
 
 from .settings import Settings
 
@@ -8,22 +9,32 @@ class Database:
     """Database initialization and schema management for SQLiteRag."""
 
     @staticmethod
+    def new_connection(db_path: str = "./sqliterag.sqlite") -> sqlite3.Connection:
+        """Create a new SQLite connection to the specified database path."""
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    @staticmethod
     def initialize(conn: sqlite3.Connection, settings: Settings) -> sqlite3.Connection:
         """Initialize the database with extensions and schema"""
         conn.enable_load_extension(True)
         try:
             conn.load_extension(
-                str(Path(__file__).parent.parent.parent / "extensions" / "ai")
+                str(importlib.resources.files("sqlite-vector.binaries") / "ai")
             )
             conn.load_extension(
-                str(Path(__file__).parent.parent.parent / "extensions" / "vector")
+                str(importlib.resources.files("sqlite-vector.binaries") / "vector")
             )
         except sqlite3.OperationalError as e:
             raise RuntimeError(
                 "Failed to load extensions: "
                 + str(e)
                 + """\n
-                Download from:
+                Install via pip:
+                    pip install sqlite-ai sqliteai-vector
+
+                See more:
                     sqlite-ai: https://github.com/sqliteai/sqlite-ai/releases
                     sqlite-vector: https://github.com/sqliteai/sqlite-vector/releases
                 """

@@ -12,7 +12,9 @@ dependencies = [
     "attrs",
     "typer",
     "huggingface_hub",
-    "markitdown[all]"
+    "markitdown[all]",
+    "sqlite-ai",
+    "sqliteai-vector"
 ]
 
 # .. or [dependency-groups] ?

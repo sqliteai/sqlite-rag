@@ -9,11 +9,11 @@ from .settings import Settings
 class Chunker:
     def __init__(self, conn: sqlite3.Connection, settings: Settings):
         self._conn = conn
-        self.settings = settings
+        self._settings = settings
 
     def chunk(self, text: str) -> list[Chunk]:
         """Chunk text using Recursive Character Text Splitter."""
-        if self._get_token_count(text) <= self.settings.chunk_size:
+        if self._get_token_count(text) <= self._settings.chunk_size:
             return [Chunk(content=text)]
 
         return self._recursive_split(text)
@@ -55,7 +55,7 @@ class Chunker:
         """Split text using hierarchical separators."""
         chunks = []
 
-        if self.settings.chunk_size <= self.settings.chunk_overlap:
+        if self._settings.chunk_size <= self._settings.chunk_overlap:
             raise ValueError("Chunk size must be greater than chunk overlap.")
 
         if not separators:
@@ -70,7 +70,7 @@ class Chunker:
 
         # Reserve space for overlap
         effective_chunk_size = max(
-            1, self.settings.chunk_size - self.settings.chunk_overlap
+            1, self._settings.chunk_size - self._settings.chunk_overlap
         )
 
         splits = text.split(separator)
@@ -108,7 +108,7 @@ class Chunker:
 
         # Reserve space for overlap
         effective_chunk_size = max(
-            1, self.settings.chunk_size - self.settings.chunk_overlap
+            1, self._settings.chunk_size - self._settings.chunk_overlap
         )
 
         total_tokens = self._get_token_count(text)
@@ -145,7 +145,7 @@ class Chunker:
 
     def _apply_overlap(self, chunks: List[Chunk]) -> List[Chunk]:
         """Apply overlap between consecutive chunks."""
-        if len(chunks) <= 1 or self.settings.chunk_overlap <= 0:
+        if len(chunks) <= 1 or self._settings.chunk_overlap <= 0:
             return chunks
 
         overlapped_chunks = [chunks[0]]  # First chunk has no overlap
@@ -156,7 +156,7 @@ class Chunker:
 
             # Get overlap text from end of previous chunk
             overlap_text = self._get_overlap_text(
-                prev_content, self.settings.chunk_overlap
+                prev_content, self._settings.chunk_overlap
             )
 
             if overlap_text:

@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 from sqlite_rag import SQLiteRag
+from sqlite_rag.settings import Settings
 
 
 class TestSQLiteRag:
@@ -509,3 +510,35 @@ class TestSQLiteRag:
         assert success is True
 
         assert not Path(temp_file_path).exists()
+
+    def test_search_exact_match(self):
+        settings = Settings()
+        # cosin distance for searching embedding is exact 0.0 when strings match
+        settings.other_vector_config = "distance=cosine"
+
+        temp_file_path = os.path.join(tempfile.mkdtemp(), "something")
+
+        rag = SQLiteRag.create(temp_file_path, settings=settings)
+
+        expected_string = "The quick brown fox jumps over the lazy dog"
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f1:
+            f1.write(expected_string)
+            file1_path = f1.name
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f2:
+            f2.write(
+                "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"
+            )
+            file2_path = f2.name
+
+        rag.add(file1_path)
+        rag.add(file2_path)
+
+        # Act
+        results = rag.search(expected_string)
+
+        assert len(results) > 0
+        assert expected_string == results[0].document.content
+        assert 1 == results[0].vec_rank
+        assert 0.0 == results[0].vec_distance

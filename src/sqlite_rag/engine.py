@@ -11,16 +11,19 @@ from .settings import Settings
 
 
 class Engine:
+    # Considered a good default to normilize the score for RRF
+    DEFAULT_RRF_K = 60
+
     def __init__(self, conn: sqlite3.Connection, settings: Settings, chunker: Chunker):
         self._conn = conn
-        self.settings = settings
+        self._settings = settings
         self._chunker = chunker
 
     def load_model(self):
         """Load the model model from the specified path
         or download it from Hugging Face if not found."""
 
-        model_path = Path(self.settings.model_path_or_name)
+        model_path = Path(self._settings.model_path_or_name)
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found at {model_path}")
 
@@ -34,7 +37,7 @@ class Engine:
         #     )
 
         self._conn.execute(
-            f"SELECT llm_model_load('{self.settings.model_path_or_name}', '{self.settings.model_config}');"
+            f"SELECT llm_model_load('{self._settings.model_path_or_name}', '{self._settings.model_config}');"
         )
 
     def process(self, document: Document) -> Document:
@@ -45,9 +48,10 @@ class Engine:
 
     def generate_embedding(self, chunks: list[Chunk]) -> list[Chunk]:
         """Generate embedding for the given text."""
-        cursor = self._conn.cursor()
 
         for chunk in chunks:
+            cursor = self._conn.cursor()
+
             try:
                 cursor.execute(
                     "SELECT llm_embed_generate(?) AS embedding", (chunk.content,)
@@ -66,39 +70,60 @@ class Engine:
         return chunks
 
     def quantize(self) -> None:
-        """Quantitize stored vector for faster search via quantitize scan."""
+        """Quantize stored vector for faster search via quantized scan."""
         cursor = self._conn.cursor()
 
         cursor.execute("SELECT vector_quantize('chunks', 'embedding');")
 
         self._conn.commit()
 
-    def search(self, query: str, limit: int = 10) -> list[DocumentResult]:
-        """Semantic search and full-text search sorted with Reciprocal Rank Fusion."""
+    def quantize_preload(self) -> None:
+        """Preload quantized vectors into memory for faster search."""
         cursor = self._conn.cursor()
 
+        cursor.execute("SELECT vector_quantize_preload('chunks', 'embedding');")
+
+        self._conn.commit()
+
+    def quantize_cleanup(self) -> None:
+        """Clean up internal structures related to a previously quantized table/column."""
+        cursor = self._conn.cursor()
+
+        cursor.execute("SELECT vector_quantize_cleanup('chunks', 'embedding');")
+
+        self._conn.commit()
+
+    def search(self, query: str, limit: int = 10) -> list[DocumentResult]:
+        """Semantic search and full-text search sorted with Reciprocal Rank Fusion."""
         query_embedding = self.generate_embedding([Chunk(content=query)])[0].embedding
 
         # Clean up and split into words
         # '*' is used to match while typing
         query = " ".join(re.findall(r"\b\w+\b", query.lower())) + "*"
 
+        vector_scan_type = (
+            "vector_quantize_scan"
+            if self._settings.quantize_scan
+            else "vector_full_scan"
+        )
+
+        cursor = self._conn.cursor()
         cursor.execute(
             # TODO: use vector_convert_XXX to convert the query to the correct type
-            """
+            f"""
             -- sqlite-vector KNN vector search results
             WITH vec_matches AS (
                 SELECT
                     v.rowid AS chunk_id,
-                    row_number() over (order by v.distance) AS rank_number,
+                    row_number() OVER (ORDER BY v.distance) AS rank_number,
                     v.distance
-                FROM vector_quantize_scan('chunks', 'embedding', vector_convert_f32(:query_embedding), :k) AS v
+                FROM {vector_scan_type}('chunks', 'embedding', :query_embedding, :k) AS v
             ),
             -- Full-text search results
             fts_matches AS (
                 SELECT
                     chunks_fts.rowid AS chunk_id,
-                    row_number() over (order by rank) AS rank_number,
+                    row_number() OVER (ORDER BY rank) AS rank_number,
                     rank AS score
                 FROM chunks_fts
                 WHERE chunks_fts MATCH :query
@@ -141,10 +166,9 @@ class Engine:
                 "query": query,
                 "query_embedding": query_embedding,
                 "k": limit,
-                # TODO: move to settings or costants
-                "rrf_k": 60,
-                "weight_fts": 1.0,
-                "weight_vec": 1.0,
+                "rrf_k": Engine.DEFAULT_RRF_K,
+                "weight_fts": self._settings.weight_fts,
+                "weight_vec": self._settings.weight_vec,
             },
         )
 
@@ -165,6 +189,19 @@ class Engine:
             )
             for row in rows
         ]
+
+    def versions(self) -> dict:
+        """Get versions of the loaded extensions."""
+        cursor = self._conn.cursor()
+        cursor.execute(
+            "SELECT ai_version() AS ai_version, vector_version() AS vector_version;"
+        )
+        row = cursor.fetchone()
+
+        return {
+            "ai_version": row["ai_version"],
+            "vector_version": row["vector_version"],
+        }
 
     def close(self):
         """Close the database connection."""

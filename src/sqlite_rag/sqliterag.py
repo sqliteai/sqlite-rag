@@ -1,4 +1,5 @@
 import sqlite3
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Optional
 
@@ -16,7 +17,7 @@ from .settings import Settings, SettingsManager
 
 class SQLiteRag:
     def __init__(self, connection: sqlite3.Connection, settings: Settings):
-        self.settings = settings
+        self._settings = settings
         self._logger = Logger()
 
         self._conn = connection
@@ -30,6 +31,13 @@ class SQLiteRag:
     def _ensure_initialized(self):
         if not self.ready:
             self._engine.load_model()
+
+        if self._settings.quantize_scan:
+            # TODO: quantize again if already quantized?
+            # TODO: DO NOT REPEAT FOR NOTHING, it takes time
+            self._engine.quantize()
+        else:
+            self._engine.quantize_cleanup()
 
         self.ready = True
 
@@ -46,21 +54,27 @@ class SQLiteRag:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
 
-        # If the database already exists, load the existing settings
+        # Load, initialize or update settings
         settings_manager = SettingsManager(conn)
         current_settings = settings_manager.load_settings()
-        if not current_settings:
-            current_settings = Settings()
-            settings_manager.store(current_settings)
+        if current_settings:
+            if settings:
+                settings = replace(current_settings, **asdict(settings))
 
-        if settings:
-            if settings_manager.has_critical_changes(settings, current_settings):
-                raise ValueError(
-                    "Critical settings changes detected. Please reset the database."
-                )
-
-            # Update new settings
-            settings_manager.store(settings)
+                if settings_manager.has_critical_changes(settings, current_settings):
+                    raise ValueError(
+                        "Critical settings changes detected. Please reset the database."
+                    )
+                # Update new settings
+                current_settings = settings_manager.store(settings)
+        elif settings:
+            # Store initial settings with customs
+            settings = replace(Settings(), **asdict(settings))
+            current_settings = settings_manager.store(settings)
+        else:
+            # Store default settings
+            settings = Settings()
+            current_settings = settings_manager.store(settings)
 
         Database.initialize(conn, current_settings)
 
@@ -109,11 +123,11 @@ class SQLiteRag:
 
             self._repository.add_document(document)
 
-            processed += 1
+            # TODO: try/expect and run in the finally block?
+            if self._settings.quantize_scan:
+                self._engine.quantize()
 
-        # TODO: when is it better to quantize? after each document?
-        if self.settings.quantize_scan:
-            self._engine.quantize()
+            processed += 1
 
         return processed
 
@@ -128,7 +142,7 @@ class SQLiteRag:
 
         self._repository.add_document(document)
 
-        if self.settings.quantize_scan:
+        if self._settings.quantize_scan:
             self._engine.quantize()
 
     def list_documents(self) -> list[Document]:
@@ -204,7 +218,7 @@ class SQLiteRag:
                 except Exception as e:
                     self._logger.error(f"Error processing text document {doc.id}: {e}")
 
-        if self.settings.quantize_scan:
+        if self._settings.quantize_scan:
             self._engine.quantize()
 
         return {
@@ -237,7 +251,15 @@ class SQLiteRag:
         """Search for documents matching the query"""
         self._ensure_initialized()
 
+        if self._settings.quantize_preload:
+            self._engine.quantize_preload()
+
         return self._engine.search(query, limit=top_k)
+
+    def get_settings(self) -> dict:
+        """Get settings and more useful information"""
+        versions = self._engine.versions()
+        return {**versions, **asdict(self._settings)}
 
     def destroy(self) -> None:
         """Free up resources"""

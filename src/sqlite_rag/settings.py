@@ -5,21 +5,36 @@ from dataclasses import asdict, dataclass, fields
 
 @dataclass
 class Settings:
+
+    #
+    # Model and embedding settings
+    #
+
     model_path_or_name: str = (
         "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf"
     )
-    model_config: str = "n_ctx=384"
+    model_config: str = "n_ctx=12000,pooling_type=last,normalize_embedding=1"
 
-    embedding_dim: int = 384
-    vector_type: str = "FLOAT32"
+    vector_type: str = "FLOAT16"
+    embedding_dim: int = 1024
     other_vector_config: str = "distance=cosine"  # e.g. distance=metric,other=value,...
 
     chunk_size: int = 12000
     # Token overlap between chunks
     chunk_overlap: int = 1200
 
-    # Whether to quantize the vector for faster search
+    #
+    # Search settings
+    #
+
+    # Whether to quantize the vector for faster search the full scan
     quantize_scan: bool = True
+    # Load quantized vectors in memory for faster search
+    quantize_preload: bool = False
+
+    # Weights for combining FTS and vector search results
+    weight_fts: float = 1.0
+    weight_vec: float = 1.0
 
 
 class SettingsManager:

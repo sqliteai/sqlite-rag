@@ -9,7 +9,7 @@ from .settings import Settings
 class Repository:
     def __init__(self, conn: sqlite3.Connection, settings: Settings):
         self._conn = conn
-        self.settings = settings
+        self._settings = settings
 
     def add_document(self, document: Document) -> str:
         """Add a text content to the database"""
@@ -30,7 +30,7 @@ class Repository:
         for chunk in document.chunks:
             # TODO: use the right vector_convert function based on the vector type
             cursor.execute(
-                "INSERT INTO chunks (document_id, content, embedding) VALUES (?, ?, vector_convert_f32(?))",
+                "INSERT INTO chunks (document_id, content, embedding) VALUES (?, ?, vector_as_f16(?))",
                 (document_id, chunk.content, chunk.embedding),
             )
             cursor.execute(

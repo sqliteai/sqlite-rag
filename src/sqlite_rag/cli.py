@@ -2,9 +2,12 @@
 import json
 import shlex
 import sys
+from dataclasses import replace
 from typing import Optional
 
 import typer
+
+from sqlite_rag.settings import Settings
 
 from .sqliterag import SQLiteRag
 
@@ -26,10 +29,89 @@ app = typer.Typer()
 cli = CLI(app)
 
 
-@app.command()
-def set(settings: Optional[str] = typer.Argument(None)):
-    """Set the model and database path"""
-    pass
+@app.command("settings")
+def show_settings():
+    """Show current settings"""
+    rag = SQLiteRag.create()
+    current_settings = rag.get_settings()
+
+    typer.echo("Current settings:")
+    for key, value in current_settings.items():
+        typer.echo(f"  {key}: {value}")
+
+
+# TODO: separate store settings from SQLiteRag.create()?
+@app.command("set")
+def set_settings(
+    model_path_or_name: Optional[str] = typer.Option(
+        None, help="Path to the embedding model file or Hugging Face model name"
+    ),
+    model_config: Optional[str] = typer.Option(
+        None, help="Model configuration parameters"
+    ),
+    embedding_dim: Optional[int] = typer.Option(
+        None, help="Dimension of the embedding vectors"
+    ),
+    vector_type: Optional[str] = typer.Option(
+        None, help="Vector storage type (FLOAT16, FLOAT32, etc.)"
+    ),
+    other_vector_config: Optional[str] = typer.Option(
+        None, help="Additional vector configuration"
+    ),
+    chunk_size: Optional[int] = typer.Option(
+        None, help="Size of text chunks for processing"
+    ),
+    chunk_overlap: Optional[int] = typer.Option(
+        None, help="Token overlap between consecutive chunks"
+    ),
+    quantize_scan: Optional[bool] = typer.Option(
+        None, help="Whether to quantize vector for faster search"
+    ),
+    quantize_preload: Optional[bool] = typer.Option(
+        None, help="Whether to preload quantized vectors in memory for faster search"
+    ),
+    weight_fts: Optional[float] = typer.Option(
+        None, help="Weight for full-text search results"
+    ),
+    weight_vec: Optional[float] = typer.Option(
+        None, help="Weight for vector search results"
+    ),
+):
+    """Change default settings for the RAG system.
+
+    Update model configuration, embedding parameters, chunking settings,
+    and search weights. Only specify the options you want to change.
+    Use 'sqlite-rag settings' to view current values.
+    """
+    # Build updates dict from all provided parameters
+    updates = {
+        "model_path_or_name": model_path_or_name,
+        "model_config": model_config,
+        "embedding_dim": embedding_dim,
+        "vector_type": vector_type,
+        "other_vector_config": other_vector_config,
+        "chunk_size": chunk_size,
+        "chunk_overlap": chunk_overlap,
+        "quantize_scan": quantize_scan,
+        "quantize_preload": quantize_preload,
+        "weight_fts": weight_fts,
+        "weight_vec": weight_vec,
+    }
+
+    # Filter out None values (unset options)
+    updates = {k: v for k, v in updates.items() if v is not None}
+
+    if not updates:
+        typer.echo("No settings provided to update.")
+        show_settings()
+        return
+
+    # Create new settings with updated fields
+    new_settings = replace(Settings(), **updates)
+    SQLiteRag.create(settings=new_settings)
+
+    show_settings()
+    typer.echo("Settings updated.")
 
 
 @app.command()
@@ -42,14 +124,12 @@ def add(
         False,
         "--absolute-paths",
         help="Store absolute paths instead of relative paths",
-        is_flag=True,
     ),
     metadata: Optional[str] = typer.Option(
         None,
         "--metadata",
         help="Optional metadata in JSON format to associate with the document",
         metavar="JSON",
-        show_default=False,
     ),
 ):
     """Add a file path to the database"""
@@ -71,8 +151,6 @@ def add_text(
         "--metadata",
         help="Optional metadata in JSON format to associate with the document",
         metavar="JSON",
-        show_default=False,
-        prompt="Metadata (JSON format, e.g. {'author': 'John Doe', 'date': '2023-10-01'}'",
     ),
 ):
     """Add a text to the database"""
