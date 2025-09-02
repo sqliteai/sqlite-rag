@@ -2,10 +2,24 @@ import os
 import tempfile
 from pathlib import Path
 
+from pytest import fixture
 from typer.testing import CliRunner
 
 from sqlite_rag.cli import app
 from sqlite_rag.settings import Settings
+
+
+@fixture
+def temp_dir():
+    """Change the current working directory in order to create
+    the default database in a temporary location."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            yield tmpdir
+        finally:
+            os.chdir(original_cwd)
 
 
 class TestCLI:
@@ -69,3 +83,23 @@ class TestCLI:
             assert "Found 1 documents" in result.stdout
             # For exact match with cosine distance, we expect distance close to 0.0
             assert "0.000000" in result.stdout or "0.00000" in result.stdout
+
+    def test_set_settings(self, temp_dir):
+        runner = CliRunner()
+
+        model_path = "mypath/mymodel.gguf"
+
+        result = runner.invoke(
+            app,
+            [
+                "set",
+                "--model-path-or-name",
+                model_path,
+                "--other-vector-config",
+                "distance=L2",
+            ],
+        )
+        assert result.exit_code == 0
+
+        assert f"model_path_or_name: {model_path}" in result.stdout
+        assert "other_vector_config: distance=L2" in result.stdout

@@ -1,6 +1,7 @@
 import json
 import sqlite3
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
+from typing import Any, Optional
 
 
 @dataclass
@@ -53,6 +54,34 @@ class SettingsManager:
         """
         )
         self.connection.commit()
+
+    def prepare_settings(self, settings: Optional[dict[str, Any]]) -> Settings:
+        """Load, initialize or update settings.
+
+        If no settings are provided, load the last used settings or use defaults.
+        If settings are provided, check for critical changes and update them.
+        """
+        current_settings = self.load_settings()
+        if current_settings:
+            if settings:
+                new_settings = replace(current_settings, **settings)
+
+                if self.has_critical_changes(new_settings, current_settings):
+                    raise ValueError(
+                        "Critical settings changes detected. Please reset the database."
+                    )
+                # Update new settings
+                current_settings = self.store(new_settings)
+        elif settings:
+            # Store initial settings with customs
+            new_settings = replace(Settings(), **settings)
+            current_settings = self.store(new_settings)
+        else:
+            # Store default settings
+            new_settings = Settings()
+            current_settings = self.store(new_settings)
+
+        return current_settings
 
     def load_settings(self) -> Settings | None:
         cursor = self.connection.cursor()

@@ -1,5 +1,5 @@
 import sqlite3
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
@@ -51,30 +51,10 @@ class SQLiteRag:
         If no new settings are provided, it uses the default settings or load
         the settings used in the last execution."""
 
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
+        conn = Database.new_connection(db_path)
 
-        # Load, initialize or update settings
         settings_manager = SettingsManager(conn)
-        current_settings = settings_manager.load_settings()
-        if current_settings:
-            if settings:
-                settings = replace(current_settings, **asdict(settings))
-
-                if settings_manager.has_critical_changes(settings, current_settings):
-                    raise ValueError(
-                        "Critical settings changes detected. Please reset the database."
-                    )
-                # Update new settings
-                current_settings = settings_manager.store(settings)
-        elif settings:
-            # Store initial settings with customs
-            settings = replace(Settings(), **asdict(settings))
-            current_settings = settings_manager.store(settings)
-        else:
-            # Store default settings
-            settings = Settings()
-            current_settings = settings_manager.store(settings)
+        current_settings = settings_manager.prepare_settings(settings)
 
         Database.initialize(conn, current_settings)
 
@@ -96,6 +76,8 @@ class SQLiteRag:
         parent = Path(path).parent
 
         files_to_process = FileReader.collect_files(Path(path), recursive=recursive)
+
+        self._engine.create_new_context()
 
         processed = 0
         self._logger.info(f"Processing {len(files_to_process)} files...")
@@ -138,6 +120,7 @@ class SQLiteRag:
         self._ensure_initialized()
 
         document = Document(content=text, uri=uri, metadata=metadata)
+        self._engine.create_new_context()
         document = self._engine.process(document)
 
         self._repository.add_document(document)
@@ -176,6 +159,8 @@ class SQLiteRag:
         reprocessed = 0
         not_found = 0
         removed = 0
+
+        self._engine.create_new_context()
 
         for doc in documents:
             doc_id = doc.id or ""
@@ -218,8 +203,8 @@ class SQLiteRag:
                 except Exception as e:
                     self._logger.error(f"Error processing text document {doc.id}: {e}")
 
-        if self._settings.quantize_scan:
-            self._engine.quantize()
+            if self._settings.quantize_scan:
+                self._engine.quantize()
 
         return {
             "total": total_docs,
@@ -247,9 +232,13 @@ class SQLiteRag:
             self._logger.error(f"Error during database reset: {e}")
             return False
 
-    def search(self, query: str, top_k: int = 10) -> list[DocumentResult]:
+    def search(
+        self, query: str, top_k: int = 10, new_context: bool = True
+    ) -> list[DocumentResult]:
         """Search for documents matching the query"""
         self._ensure_initialized()
+        if new_context:
+            self._engine.create_new_context()
 
         if self._settings.quantize_preload:
             self._engine.quantize_preload()

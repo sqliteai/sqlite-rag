@@ -2,12 +2,12 @@
 import json
 import shlex
 import sys
-from dataclasses import replace
 from typing import Optional
 
 import typer
 
-from sqlite_rag.settings import Settings
+from sqlite_rag.database import Database
+from sqlite_rag.settings import SettingsManager
 
 from .sqliterag import SQLiteRag
 
@@ -40,7 +40,6 @@ def show_settings():
         typer.echo(f"  {key}: {value}")
 
 
-# TODO: separate store settings from SQLiteRag.create()?
 @app.command("set")
 def set_settings(
     model_path_or_name: Optional[str] = typer.Option(
@@ -106,9 +105,9 @@ def set_settings(
         show_settings()
         return
 
-    # Create new settings with updated fields
-    new_settings = replace(Settings(), **updates)
-    SQLiteRag.create(settings=new_settings)
+    conn = Database.new_connection()
+    settings_manager = SettingsManager(conn)
+    settings_manager.prepare_settings(updates)
 
     show_settings()
     typer.echo("Settings updated.")

@@ -144,3 +144,64 @@ class TestSettings:
             new_settings, current_settings
         )
         assert has_changes
+
+    def test_prepare_settings_with_no_existing_and_no_input(self, db_conn):
+        """Test prepare_settings returns default settings when no existing settings and no input"""
+        settings_manager = SettingsManager(db_conn[0])
+
+        result = settings_manager.prepare_settings(None)
+
+        defaults = Settings()
+        assert result.model_path_or_name == defaults.model_path_or_name
+        assert result.embedding_dim == defaults.embedding_dim
+        assert result.chunk_size == defaults.chunk_size
+
+    def test_prepare_settings_with_no_existing_and_custom_input(self, db_conn):
+        """Test prepare_settings stores and returns custom settings when no existing settings"""
+        settings_manager = SettingsManager(db_conn[0])
+
+        result = settings_manager.prepare_settings(
+            {"chunk_size": 5000, "quantize_scan": False}
+        )
+
+        assert result.chunk_size == 5000
+        assert result.quantize_scan is False
+        # Check defaults are preserved
+        defaults = Settings()
+        assert result.model_path_or_name == defaults.model_path_or_name
+
+    def test_prepare_settings_with_existing_and_no_input(self, db_conn):
+        """Test prepare_settings returns existing settings when they exist and no input provided"""
+        settings_manager = SettingsManager(db_conn[0])
+        existing = Settings(chunk_size=3000, quantize_scan=False)
+        settings_manager.store(existing)
+
+        result = settings_manager.prepare_settings(None)
+
+        assert result.chunk_size == 3000
+        assert result.quantize_scan is False
+
+    def test_prepare_settings_with_existing_and_non_critical_updates(self, db_conn):
+        """Test prepare_settings updates non-critical settings when existing settings present"""
+        settings_manager = SettingsManager(db_conn[0])
+        existing = Settings(chunk_size=3000, chunk_overlap=100)
+        settings_manager.store(existing)
+
+        result = settings_manager.prepare_settings(
+            {"chunk_size": 4000, "quantize_scan": False}
+        )
+
+        assert result.chunk_size == 4000
+        assert result.chunk_overlap == 100
+        assert result.quantize_scan is False
+
+    def test_prepare_settings_with_critical_changes_raises_error(self, db_conn):
+        """Test prepare_settings raises ValueError when critical settings change"""
+        settings_manager = SettingsManager(db_conn[0])
+        existing = Settings()
+        settings_manager.store(existing)
+
+        import pytest
+
+        with pytest.raises(ValueError, match="Critical settings changes detected"):
+            settings_manager.prepare_settings({"model_path_or_name": "new_model"})

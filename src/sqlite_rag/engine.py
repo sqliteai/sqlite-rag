@@ -37,7 +37,8 @@ class Engine:
         #     )
 
         self._conn.execute(
-            f"SELECT llm_model_load('{self._settings.model_path_or_name}', '{self._settings.model_config}');"
+            "SELECT llm_model_load(?, ?);",
+            (self._settings.model_path_or_name, self._settings.model_config),
         )
 
     def process(self, document: Document) -> Document:
@@ -51,6 +52,8 @@ class Engine:
 
         for chunk in chunks:
             cursor = self._conn.cursor()
+
+            self.create_new_context()
 
             try:
                 cursor.execute(
@@ -75,15 +78,11 @@ class Engine:
 
         cursor.execute("SELECT vector_quantize('chunks', 'embedding');")
 
-        self._conn.commit()
-
     def quantize_preload(self) -> None:
         """Preload quantized vectors into memory for faster search."""
         cursor = self._conn.cursor()
 
         cursor.execute("SELECT vector_quantize_preload('chunks', 'embedding');")
-
-        self._conn.commit()
 
     def quantize_cleanup(self) -> None:
         """Clean up internal structures related to a previously quantized table/column."""
@@ -91,7 +90,17 @@ class Engine:
 
         cursor.execute("SELECT vector_quantize_cleanup('chunks', 'embedding');")
 
-        self._conn.commit()
+    def create_new_context(self) -> None:
+        """"""
+        cursor = self._conn.cursor()
+
+        cursor.execute("SELECT llm_context_create(?);", (self._settings.model_config,))
+
+    def free_context(self) -> None:
+        """"""
+        cursor = self._conn.cursor()
+
+        cursor.execute("SELECT llm_context_free();")
 
     def search(self, query: str, limit: int = 10) -> list[DocumentResult]:
         """Semantic search and full-text search sorted with Reciprocal Rank Fusion."""
