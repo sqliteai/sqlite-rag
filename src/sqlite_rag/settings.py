@@ -12,7 +12,7 @@ class Settings:
     #
 
     model_path_or_name: str = (
-        "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf"
+        "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-f16.gguf"
     )
     model_config: str = "n_ctx=12000,pooling_type=last,normalize_embedding=1"
 

@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 
 from sqlite_rag import SQLiteRag
-from sqlite_rag.settings import Settings
 
 
 class TestSQLiteRag:
@@ -512,9 +511,8 @@ class TestSQLiteRag:
         assert not Path(temp_file_path).exists()
 
     def test_search_exact_match(self):
-        settings = Settings()
         # cosin distance for searching embedding is exact 0.0 when strings match
-        settings.other_vector_config = "distance=cosine"
+        settings = {"other_vector_config": "distance=cosine"}
 
         temp_file_path = os.path.join(tempfile.mkdtemp(), "something")
 

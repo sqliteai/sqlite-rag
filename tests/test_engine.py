@@ -1,3 +1,5 @@
+import pytest
+
 from sqlite_rag.chunker import Chunker
 from sqlite_rag.engine import Engine
 from sqlite_rag.models.chunk import Chunk
@@ -20,6 +22,7 @@ class TestEngine:
 
         assert len(results) == 0
 
+    @pytest.mark.skip(reason="Waiting for sqlite-ai context to be fixed")
     def test_search_with_semantic_and_fts(self, db_conn):
         # Arrange
         conn, settings = db_conn
@@ -57,6 +60,7 @@ class TestEngine:
         assert len(results) > 0
         assert doc3_id == results[0].document.id
 
+    @pytest.mark.skip(reason="Waiting for sqlite-ai context to be fixed")
     def test_search_semantic_result(self, db_conn):
         # Arrange
         conn, settings = db_conn

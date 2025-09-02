@@ -1,13 +1,20 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0", "wheel", "toml"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "sqlite-rag"
-version = "0.1.0"
+version = "0.0.0"
 description = "Hybird search with SQLite AI and SQLite Vector"
-authors = [{name = "User"}]
+authors = [{name = "SQLite AI Team"}]
 requires-python = ">=3.10"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "attrs",
     "typer",
@@ -17,7 +24,6 @@ dependencies = [
     "sqliteai-vector"
 ]
 
-# .. or [dependency-groups] ?
 [project.optional-dependencies]
 dev = [
     "pytest",
@@ -28,6 +34,11 @@ dev = [
     "isort",
     "pre-commit"
 ]
+
+[project.urls]
+Homepage = "https://sqlite.ai"
+Repository = "https://github.com/sqliteai/sqlite-rag"
+Issues = "https://github.com/sqliteai/sqlite-rag/issues"
 
 [project.scripts]
 sqlite-rag = "sqlite_rag.cli:cli"

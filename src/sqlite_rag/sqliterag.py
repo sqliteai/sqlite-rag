@@ -1,7 +1,7 @@
 import sqlite3
 from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from sqlite_rag.logger import Logger
 from sqlite_rag.models.document_result import DocumentResult
@@ -43,7 +43,7 @@ class SQLiteRag:
 
     @staticmethod
     def create(
-        db_path: str = "./sqliterag.sqlite", settings: Optional[Settings] = None
+        db_path: str = "./sqliterag.sqlite", settings: Optional[dict[str, Any]] = None
     ) -> "SQLiteRag":
         """Create a new SQLiteRag instance with the given settings.
 

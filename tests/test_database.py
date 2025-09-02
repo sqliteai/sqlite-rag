@@ -6,7 +6,7 @@ from sqlite_rag.settings import Settings
 
 class TestDatabase:
     def test_db_initialization(self):
-        conn = sqlite3.connect(":memory")
+        conn = sqlite3.connect(":memory:")
         Database.initialize(conn, Settings())
 
         # Check if the tables exist

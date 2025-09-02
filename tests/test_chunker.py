@@ -157,7 +157,7 @@ class TestCharacterFallback:
         # Each chunk should respect the chunk size limit
         for chunk in chunks:
             token_count = chunker_tiny._get_token_count(chunk.content)
-            assert token_count <= chunker_tiny.settings.chunk_size
+            assert token_count <= chunker_tiny._settings.chunk_size
 
 
 class TestOverlapFunctionality:

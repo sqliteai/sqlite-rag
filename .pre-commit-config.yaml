@@ -11,6 +11,11 @@ repos:
     rev: 25.1.0
     hooks:
     -   id: black
+- repo: https://github.com/PyCQA/autoflake
+  rev: v2.3.1
+  hooks:
+    - id: autoflake
+      args: ["--remove-all-unused-imports", "--remove-unused-variables", "--ignore-init-module-imports", "--in-place", "--recursive", "."]
 - repo: https://github.com/pycqa/isort
   rev: 6.0.1
   hooks:
