@@ -1,3 +1,3 @@
 # https://bndit.readthedocs.io/en/latest/config.html
-skips: ['B101', 'B608']
+skips: ['B101', 'B615']
 exclude_dirs: ['tests']

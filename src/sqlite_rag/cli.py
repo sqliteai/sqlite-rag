@@ -2,6 +2,7 @@
 import json
 import shlex
 import sys
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -342,6 +343,56 @@ def search(
                 uri = "..." + uri[-34:]
 
             typer.echo(f"{idx:<3} {snippet:<60} {uri:<40}")
+
+
+@app.command("download-model")
+def download_model(
+    model_id: str = typer.Argument(
+        ..., help="Hugging Face model ID (e.g., Qwen/Qwen3-Embedding-0.6B-GGUF)"
+    ),
+    gguf_file: str = typer.Argument(
+        ..., help="GGUF filename to download (e.g., Qwen3-Embedding-0.6B-Q8_0.gguf)"
+    ),
+    local_dir: str = typer.Option(
+        "./models", "--local-dir", "-d", help="Local directory to download to"
+    ),
+    revision: str = typer.Option(
+        "main", "--revision", "-r", help="Model revision/branch to download from"
+    ),
+):
+    """Download a GGUF model file from Hugging Face"""
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError:
+        typer.echo(
+            "Error: huggingface_hub not found. Install with: pip install huggingface_hub"
+        )
+        raise typer.Exit(1)
+
+    # Create local directory structure
+    local_path = Path(local_dir) / model_id
+    local_path.mkdir(parents=True, exist_ok=True)
+
+    typer.echo(f"Downloading {gguf_file} from {model_id}...")
+
+    try:
+        # Download the specific GGUF file
+        downloaded_path = hf_hub_download(
+            repo_id=model_id,
+            filename=gguf_file,
+            local_dir=str(local_path),
+            revision=revision,
+        )
+
+        final_path = Path(downloaded_path)
+        typer.echo(f"Downloaded to: {final_path}")
+
+        if final_path.exists():
+            typer.echo(f"File size: {final_path.stat().st_size / (1024*1024):.1f} MB")
+
+    except Exception as e:
+        typer.echo(f"Error downloading model: {e}")
+        raise typer.Exit(1)
 
 
 def repl_mode():

@@ -14,15 +14,15 @@ class Settings:
     model_path_or_name: str = (
         "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-f16.gguf"
     )
-    model_config: str = "n_ctx=12000,pooling_type=last,normalize_embedding=1"
+    model_config: str = "n_ctx=128,pooling_type=last,normalize_embedding=1"
 
     vector_type: str = "FLOAT16"
     embedding_dim: int = 1024
     other_vector_config: str = "distance=cosine"  # e.g. distance=metric,other=value,...
 
-    chunk_size: int = 12000
+    chunk_size: int = 128
     # Token overlap between chunks
-    chunk_overlap: int = 1200
+    chunk_overlap: int = 20
 
     #
     # Search settings

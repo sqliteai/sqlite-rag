@@ -43,8 +43,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build
-        env:
-          PACKAGE_VERSION: ${{ steps.get_version.outputs.version }}
         run: |
           # Update version in pyproject.toml
           sed -i 's/^version = ".*"/version = "${{ steps.get_version.outputs.version }}"/' pyproject.toml

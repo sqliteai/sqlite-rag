@@ -18,7 +18,7 @@ classifiers = [
 dependencies = [
     "attrs",
     "typer",
-    "huggingface_hub",
+    "huggingface_hub[cli]",
     "markitdown[all]",
     "sqlite-ai",
     "sqliteai-vector"
@@ -26,6 +26,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "toml",
     "pytest",
     "pytest-cov",
     "black",
