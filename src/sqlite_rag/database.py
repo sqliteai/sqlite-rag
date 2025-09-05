@@ -91,7 +91,7 @@ class Database:
 
         cursor.execute(
             f"""
-            SELECT vector_init('chunks', 'embedding', 'type={settings.vector_type},dimension={settings.embedding_dim},{settings.other_vector_config}');
+            SELECT vector_init('chunks', 'embedding', 'type={settings.vector_type},dimension={settings.embedding_dim},{settings.other_vector_options}');
         """
         )
 

@@ -9,7 +9,7 @@ class TestSettings:
         settings_manager = SettingsManager(db_conn[0])
         settings = Settings(
             model_path_or_name="test_model",
-            model_config="test_config",
+            model_options="test_config",
             embedding_dim=768,
             vector_type="test_store",
             chunk_overlap=100,
@@ -23,7 +23,7 @@ class TestSettings:
 
         assert stored_settings is not None
         assert stored_settings.model_path_or_name == "test_model"
-        assert stored_settings.model_config == "test_config"
+        assert stored_settings.model_options == "test_config"
         assert stored_settings.embedding_dim == 768
         assert stored_settings.vector_type == "test_store"
         assert stored_settings.chunk_overlap == 100
@@ -34,7 +34,7 @@ class TestSettings:
         settings_manager = SettingsManager(db_conn[0])
         settings = Settings(
             model_path_or_name="test_model",
-            model_config="test_config",
+            model_options="test_config",
             embedding_dim=768,
             vector_type="test_store",
             chunk_overlap=100,
@@ -47,7 +47,7 @@ class TestSettings:
         # Store again with different values
         new_settings = Settings(
             model_path_or_name="new_model",
-            model_config="new_config",
+            model_options="new_config",
             embedding_dim=512,
             vector_type="new_store",
             chunk_overlap=50,
@@ -60,7 +60,7 @@ class TestSettings:
 
         assert stored_settings is not None
         assert stored_settings.model_path_or_name == "new_model"
-        assert stored_settings.model_config == "new_config"
+        assert stored_settings.model_options == "new_config"
         assert stored_settings.embedding_dim == 512
         assert stored_settings.vector_type == "new_store"
         assert stored_settings.chunk_overlap == 50
@@ -82,7 +82,7 @@ class TestSettings:
 
         assert loaded_settings is not None
         assert loaded_settings.model_path_or_name == settings.model_path_or_name
-        assert loaded_settings.model_config == settings.model_config
+        assert loaded_settings.model_options == settings.model_options
         assert loaded_settings.embedding_dim == settings.embedding_dim
         assert loaded_settings.vector_type == settings.vector_type
         assert loaded_settings.chunk_overlap == settings.chunk_overlap

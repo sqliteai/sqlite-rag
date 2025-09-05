@@ -1,3 +1,4 @@
+import json
 import re
 import sqlite3
 from pathlib import Path
@@ -38,7 +39,7 @@ class Engine:
 
         self._conn.execute(
             "SELECT llm_model_load(?, ?);",
-            (self._settings.model_path_or_name, self._settings.model_config),
+            (self._settings.model_path_or_name, self._settings.model_options),
         )
 
     def process(self, document: Document) -> Document:
@@ -52,8 +53,6 @@ class Engine:
 
         for chunk in chunks:
             cursor = self._conn.cursor()
-
-            self.create_new_context()
 
             try:
                 cursor.execute(
@@ -94,7 +93,9 @@ class Engine:
         """"""
         cursor = self._conn.cursor()
 
-        cursor.execute("SELECT llm_context_create(?);", (self._settings.model_config,))
+        cursor.execute(
+            "SELECT llm_context_create(?);", (self._settings.model_context_options,)
+        )
 
     def free_context(self) -> None:
         """"""
@@ -117,8 +118,9 @@ class Engine:
         )
 
         cursor = self._conn.cursor()
+        # TODO: understand how to sort results depending on the distance metric
+        # Eg, for cosine distance, higher is better (closer to 1)
         cursor.execute(
-            # TODO: use vector_convert_XXX to convert the query to the correct type
             f"""
             -- sqlite-vector KNN vector search results
             WITH vec_matches AS (
@@ -159,6 +161,7 @@ class Engine:
                 documents.id,
                 documents.uri,
                 documents.content as document_content,
+                documents.metadata,
                 chunks.content AS snippet,
                 vec_rank,
                 fts_rank,
@@ -170,7 +173,7 @@ class Engine:
                 JOIN documents ON documents.id = chunks.document_id
             ORDER BY combined_rank DESC
             ;
-            """,
+            """,  # nosec B608
             {
                 "query": query,
                 "query_embedding": query_embedding,
@@ -188,6 +191,7 @@ class Engine:
                     id=row["id"],
                     uri=row["uri"],
                     content=row["document_content"],
+                    metadata=json.loads(row["metadata"]) if row["metadata"] else {},
                 ),
                 snippet=row["snippet"],
                 vec_rank=row["vec_rank"],

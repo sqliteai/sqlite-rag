@@ -111,6 +111,8 @@ class SQLiteRag:
 
             processed += 1
 
+        self._engine.free_context()
+
         return processed
 
     def add_text(
@@ -120,6 +122,7 @@ class SQLiteRag:
         self._ensure_initialized()
 
         document = Document(content=text, uri=uri, metadata=metadata)
+
         self._engine.create_new_context()
         document = self._engine.process(document)
 
@@ -127,6 +130,8 @@ class SQLiteRag:
 
         if self._settings.quantize_scan:
             self._engine.quantize()
+
+        self._engine.free_context()
 
     def list_documents(self) -> list[Document]:
         """List all documents in the database"""
@@ -205,6 +210,8 @@ class SQLiteRag:
 
             if self._settings.quantize_scan:
                 self._engine.quantize()
+
+        self._engine.free_context()
 
         return {
             "total": total_docs,
