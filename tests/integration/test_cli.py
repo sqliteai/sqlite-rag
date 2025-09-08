@@ -46,7 +46,7 @@ class TestCLI:
                         "set",
                         "--model-path-or-name",
                         str(model_path),
-                        "--other-vector-config",
+                        "--other-vector-options",
                         "distance=cosine",
                     ],
                 )
@@ -95,11 +95,11 @@ class TestCLI:
                 "set",
                 "--model-path-or-name",
                 model_path,
-                "--other-vector-config",
+                "--other-vector-options",
                 "distance=L2",
             ],
         )
         assert result.exit_code == 0
 
         assert f"model_path_or_name: {model_path}" in result.stdout
-        assert "other_vector_config: distance=L2" in result.stdout
+        assert "other_vector_options: distance=L2" in result.stdout

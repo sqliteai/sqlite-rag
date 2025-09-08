@@ -137,7 +137,7 @@ def add(
     rag.add(
         path,
         recursive=recursive,
-        absolute_paths=absolute_paths,
+        use_absolute_paths=absolute_paths,
         metadata=json.loads(metadata or "{}"),
     )
 
@@ -343,6 +343,29 @@ def search(
                 uri = "..." + uri[-34:]
 
             typer.echo(f"{idx:<3} {snippet:<60} {uri:<40}")
+
+
+@app.command()
+def quantize(
+    cleanup: bool = typer.Option(
+        False,
+        "--cleanup",
+        help="Clean up quantization structures instead of creating them",
+    )
+):
+    """Quantize vectors for faster search or clean up quantization structures"""
+    rag = SQLiteRag.create()
+
+    if cleanup:
+        typer.echo("Cleaning up quantization structures...")
+        rag.quantize_cleanup()
+        typer.echo("Quantization cleanup completed.")
+    else:
+        typer.echo("Starting vector quantization...")
+        rag.quantize_vectors()
+        typer.echo(
+            "Vector quantization completed. Now you can search with `--quantize-scan` and `--quantize-preload` enabled."
+        )
 
 
 @app.command("download-model")

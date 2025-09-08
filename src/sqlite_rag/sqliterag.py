@@ -32,13 +32,6 @@ class SQLiteRag:
         if not self.ready:
             self._engine.load_model()
 
-        if self._settings.quantize_scan:
-            # TODO: quantize again if already quantized?
-            # TODO: DO NOT REPEAT FOR NOTHING, it takes time
-            self._engine.quantize()
-        else:
-            self._engine.quantize_cleanup()
-
         self.ready = True
 
     @staticmethod
@@ -64,7 +57,7 @@ class SQLiteRag:
         self,
         path: str,
         recursive: bool = False,
-        absolute_paths: bool = True,
+        use_absolute_paths: bool = True,
         metadata: dict = {},
     ) -> int:
         """Add the file content into the database"""
@@ -81,35 +74,35 @@ class SQLiteRag:
 
         processed = 0
         self._logger.info(f"Processing {len(files_to_process)} files...")
-        for file_path in files_to_process:
-            content = FileReader.parse_file(file_path)
+        try:
+            for file_path in files_to_process:
+                content = FileReader.parse_file(file_path)
 
-            if not content:
-                self._logger.warning(f"Skipping empty file: {file_path}")
-                continue
+                if not content:
+                    self._logger.warning(f"Skipping empty file: {file_path}")
+                    continue
 
-            uri = (
-                str(file_path.absolute())
-                if absolute_paths
-                else str(file_path.relative_to(parent))
-            )
-            document = Document(content=content, uri=uri, metadata=metadata)
+                uri = (
+                    str(file_path.absolute())
+                    if use_absolute_paths
+                    else str(file_path.relative_to(parent))
+                )
+                document = Document(content=content, uri=uri, metadata=metadata)
 
-            exists = self._repository.document_exists_by_hash(document.hash())
-            if exists:
-                self._logger.info(f"Unchanged: {file_path}")
-                continue
+                exists = self._repository.document_exists_by_hash(document.hash())
+                if exists:
+                    self._logger.info(f"Unchanged: {file_path}")
+                    continue
 
-            self._logger.info(f"Processing: {file_path}")
-            document = self._engine.process(document)
+                self._logger.info(f"Processing: {file_path}")
+                document = self._engine.process(document)
 
-            self._repository.add_document(document)
+                self._repository.add_document(document)
 
-            # TODO: try/expect and run in the finally block?
+                processed += 1
+        finally:
             if self._settings.quantize_scan:
                 self._engine.quantize()
-
-            processed += 1
 
         self._engine.free_context()
 
@@ -247,7 +240,7 @@ class SQLiteRag:
         if new_context:
             self._engine.create_new_context()
 
-        if self._settings.quantize_preload:
+        if self._settings.quantize_scan and self._settings.quantize_preload:
             self._engine.quantize_preload()
 
         return self._engine.search(query, limit=top_k)
@@ -257,7 +250,17 @@ class SQLiteRag:
         versions = self._engine.versions()
         return {**versions, **asdict(self._settings)}
 
-    def destroy(self) -> None:
+    def quantize_vectors(self) -> None:
+        """Quantize vectors for faster search"""
+        self._ensure_initialized()
+        self._engine.quantize()
+
+    def quantize_cleanup(self) -> None:
+        """Clean up quantization structures"""
+        self._ensure_initialized()
+        self._engine.quantize_cleanup()
+
+    def close(self) -> None:
         """Free up resources"""
         if self._conn:
             self._engine.close()

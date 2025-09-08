@@ -3,6 +3,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from sqlite_rag import SQLiteRag
 
 
@@ -94,7 +96,7 @@ class TestSQLiteRag:
 
         rag = SQLiteRag.create(":memory:")
 
-        rag.add(temp_file_path, absolute_paths=True)
+        rag.add(temp_file_path, use_absolute_paths=True)
 
         conn = rag._conn
         cursor = conn.execute("SELECT uri FROM documents")
@@ -109,7 +111,7 @@ class TestSQLiteRag:
 
         rag = SQLiteRag.create(":memory:")
 
-        rag.add(str(temp_file_path), absolute_paths=False)
+        rag.add(str(temp_file_path), use_absolute_paths=False)
 
         conn = rag._conn
         cursor = conn.execute("SELECT uri FROM documents")
@@ -540,3 +542,41 @@ class TestSQLiteRag:
         assert expected_string == results[0].document.content
         assert 1 == results[0].vec_rank
         assert 0.0 == results[0].vec_distance
+
+    @pytest.mark.parametrize(
+        "quantize_scan", [True, False], ids=["quantize", "no-quantize"]
+    )
+    def test_search_samples_exact_match_by_scan_type(self, quantize_scan: bool):
+        # Test that searching for exact content from sample files returns distance 0
+        # FTS not included in the combined score
+        settings = {
+            "other_vector_options": "distance=cosine",
+            "weight_fts": 0.0,
+            "quantize_scan": quantize_scan,
+        }
+
+        temp_file_path = os.path.join(tempfile.mkdtemp(), "mydb.db")
+        rag = SQLiteRag.create(temp_file_path, settings=settings)
+
+        # Index all sample files
+        samples_dir = Path(__file__).parent / "assets" / "samples"
+        rag.add(str(samples_dir))
+
+        # Get all sample files and test each one
+        sample_files = list(samples_dir.glob("*.txt"))
+
+        for sample_file in sample_files:
+            file_content = sample_file.read_text(encoding="utf-8")
+
+            # Search for the exact content
+            results = rag.search(file_content, top_k=2)
+
+            assert len(results) == 2
+
+            first_result = results[0]
+            assert first_result.vec_distance == 0.0
+            assert first_result.document.content == file_content
+
+            # Second result should have distance > 0
+            second_result = results[1]
+            assert second_result.vec_distance and second_result.vec_distance > 0.0

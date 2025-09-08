@@ -3,6 +3,7 @@ import re
 import sqlite3
 from pathlib import Path
 
+from sqlite_rag.logger import Logger
 from sqlite_rag.models.document_result import DocumentResult
 
 from .chunker import Chunker
@@ -19,6 +20,7 @@ class Engine:
         self._conn = conn
         self._settings = settings
         self._chunker = chunker
+        self._logger = Logger()
 
     def load_model(self):
         """Load the model model from the specified path
@@ -77,6 +79,9 @@ class Engine:
 
         cursor.execute("SELECT vector_quantize('chunks', 'embedding');")
 
+        self._conn.commit()
+        self._logger.debug("Quantization completed.")
+
     def quantize_preload(self) -> None:
         """Preload quantized vectors into memory for faster search."""
         cursor = self._conn.cursor()
@@ -88,6 +93,8 @@ class Engine:
         cursor = self._conn.cursor()
 
         cursor.execute("SELECT vector_quantize_cleanup('chunks', 'embedding');")
+
+        self._conn.commit()
 
     def create_new_context(self) -> None:
         """"""
