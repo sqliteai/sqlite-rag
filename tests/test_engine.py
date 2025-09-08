@@ -104,6 +104,7 @@ class TestEngine:
 
         engine = Engine(conn, settings, Chunker(conn, settings))
         engine.load_model()
+        engine.create_new_context()
 
         doc1 = Document(
             content="The quick brown fox jumps over the lazy dog.",
@@ -148,6 +149,7 @@ class TestEngine:
             uri="document1.txt",
         )
 
+        engine.create_new_context()
         engine.process(doc)
 
         repository = Repository(conn, settings)
@@ -162,10 +164,11 @@ class TestEngine:
     def test_search_exact_match(self, db_conn):
         conn, settings = db_conn
         # cosin distance for searching embedding is exact 0.0 when strings match
-        settings.other_vector_config = "distance=cosine"
+        settings.other_vector_options = "distance=cosine"
 
         engine = Engine(conn, settings, Chunker(conn, settings))
         engine.load_model()
+        engine.create_new_context()
 
         doc1 = Document(
             content="The quick brown fox jumps over the lazy dog",

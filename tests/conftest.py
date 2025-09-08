@@ -31,5 +31,6 @@ def engine(db_conn):
     engine = Engine(conn, settings, chunker=Chunker(conn, settings))
     engine.load_model()
     engine.quantize()
+    engine.create_new_context()
 
     return engine

@@ -512,7 +512,7 @@ class TestSQLiteRag:
 
     def test_search_exact_match(self):
         # cosin distance for searching embedding is exact 0.0 when strings match
-        settings = {"other_vector_config": "distance=cosine"}
+        settings = {"other_vector_options": "distance=cosine"}
 
         temp_file_path = os.path.join(tempfile.mkdtemp(), "something")
 

@@ -55,7 +55,7 @@ def set_settings(
     vector_type: Optional[str] = typer.Option(
         None, help="Vector storage type (FLOAT16, FLOAT32, etc.)"
     ),
-    other_vector_config: Optional[str] = typer.Option(
+    other_vector_options: Optional[str] = typer.Option(
         None, help="Additional vector configuration"
     ),
     chunk_size: Optional[int] = typer.Option(
@@ -89,7 +89,7 @@ def set_settings(
         "model_config": model_config,
         "embedding_dim": embedding_dim,
         "vector_type": vector_type,
-        "other_vector_config": other_vector_config,
+        "other_vector_options": other_vector_options,
         "chunk_size": chunk_size,
         "chunk_overlap": chunk_overlap,
         "quantize_scan": quantize_scan,
