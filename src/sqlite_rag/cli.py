@@ -2,6 +2,7 @@
 import json
 import shlex
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +11,7 @@ import typer
 from sqlite_rag.database import Database
 from sqlite_rag.settings import SettingsManager
 
+from .formatters import get_formatter
 from .sqliterag import SQLiteRag
 
 
@@ -120,10 +122,10 @@ def add(
     recursive: bool = typer.Option(
         False, "-r", "--recursive", help="Recursively add all files in directories"
     ),
-    absolute_paths: bool = typer.Option(
+    use_relative_paths: bool = typer.Option(
         False,
-        "--absolute-paths",
-        help="Store absolute paths instead of relative paths",
+        "--relative-paths",
+        help="Store relative paths instead of absolute paths",
     ),
     metadata: Optional[str] = typer.Option(
         None,
@@ -133,13 +135,18 @@ def add(
     ),
 ):
     """Add a file path to the database"""
+    start_time = time.time()
+
     rag = SQLiteRag.create()
     rag.add(
         path,
         recursive=recursive,
-        use_absolute_paths=absolute_paths,
+        use_relative_paths=use_relative_paths,
         metadata=json.loads(metadata or "{}"),
     )
+
+    elapsed_time = time.time() - start_time
+    typer.echo(f"{elapsed_time:.2f} seconds")
 
 
 @app.command()
@@ -281,68 +288,28 @@ def search(
     query: str,
     limit: int = typer.Option(10, help="Number of results to return"),
     debug: bool = typer.Option(
-        False, "-d", "--debug", help="Print extra debug information"
+        False,
+        "-d",
+        "--debug",
+        help="Print extra debug information with modern formatting",
+    ),
+    peek: bool = typer.Option(
+        False, "--peek", help="Print debug information using compact table format"
     ),
 ):
     """Search for documents using hybrid vector + full-text search"""
+    start_time = time.time()
+
     rag = SQLiteRag.create()
     results = rag.search(query, top_k=limit)
 
-    if not results:
-        typer.echo("No documents found matching the query.")
-        return
+    search_time = time.time() - start_time
 
-    typer.echo(f"Found {len(results)} documents:")
+    # Get the appropriate formatter and display results
+    formatter = get_formatter(debug=debug, table_view=peek)
+    formatter.format_results(results, query)
 
-    if debug:
-        # Enhanced debug table with better formatting
-        typer.echo(
-            f"{'#':<3} {'Preview':<55} {'URI':<35} {'C.Rank':<33} {'V.Rank':<8} {'FTS.Rank':<9} {'V.Dist':<18} {'FTS.Score':<18}"
-        )
-        typer.echo("─" * 180)
-
-        for idx, doc in enumerate(results, 1):
-            # Clean snippet display
-            snippet = doc.snippet.replace("\n", " ").replace("\r", "")
-            if len(snippet) > 52:
-                snippet = snippet[:49] + "..."
-
-            # Clean URI display
-            uri = doc.document.uri or "N/A"
-            if len(uri) > 32:
-                uri = "..." + uri[-29:]
-
-            # Format debug values with proper precision
-            c_rank = (
-                f"{doc.combined_rank:.17f}" if doc.combined_rank is not None else "N/A"
-            )
-            v_rank = str(doc.vec_rank) if doc.vec_rank is not None else "N/A"
-            fts_rank = str(doc.fts_rank) if doc.fts_rank is not None else "N/A"
-            v_dist = (
-                f"{doc.vec_distance:.6f}" if doc.vec_distance is not None else "N/A"
-            )
-            fts_score = f"{doc.fts_score:.6f}" if doc.fts_score is not None else "N/A"
-
-            typer.echo(
-                f"{idx:<3} {snippet:<55} {uri:<35} {c_rank:<33} {v_rank:<8} {fts_rank:<9} {v_dist:<18} {fts_score:<18}"
-            )
-    else:
-        # Clean simple table for normal view
-        typer.echo(f"{'#':<3} {'Preview':<60} {'URI':<40}")
-        typer.echo("─" * 105)
-
-        for idx, doc in enumerate(results, 1):
-            # Clean snippet display
-            snippet = doc.snippet.replace("\n", " ").replace("\r", "")
-            if len(snippet) > 57:
-                snippet = snippet[:54] + "..."
-
-            # Clean URI display
-            uri = doc.document.uri or "N/A"
-            if len(uri) > 37:
-                uri = "..." + uri[-34:]
-
-            typer.echo(f"{idx:<3} {snippet:<60} {uri:<40}")
+    typer.echo(f"{search_time:.3f} seconds")
 
 
 @app.command()

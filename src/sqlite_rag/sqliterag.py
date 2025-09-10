@@ -57,7 +57,7 @@ class SQLiteRag:
         self,
         path: str,
         recursive: bool = False,
-        use_absolute_paths: bool = True,
+        use_relative_paths: bool = False,
         metadata: dict = {},
     ) -> int:
         """Add the file content into the database"""
@@ -86,9 +86,9 @@ class SQLiteRag:
                     continue
 
                 uri = (
-                    str(file_path.absolute())
-                    if use_absolute_paths
-                    else str(file_path.relative_to(parent))
+                    str(file_path.relative_to(parent))
+                    if use_relative_paths
+                    else str(file_path.absolute())
                 )
                 document = Document(content=content, uri=uri, metadata=metadata)
 
@@ -165,7 +165,7 @@ class SQLiteRag:
 
         self._engine.create_new_context()
 
-        for doc in documents:
+        for i, doc in enumerate(documents):
             doc_id = doc.id or ""
 
             if doc.uri and Path(doc.uri).exists():
@@ -179,7 +179,7 @@ class SQLiteRag:
                     self._repository.add_document(processed_doc)
 
                     reprocessed += 1
-                    self._logger.debug(f"Reprocessed: {doc.uri}")
+                    self._logger.debug(f"{i+1}/{total_docs} Reprocessed: {doc.uri}")
                 except Exception as e:
                     self._logger.error(f"Error processing {doc.uri}: {e}")
                     not_found += 1
@@ -191,7 +191,9 @@ class SQLiteRag:
                 if remove_missing:
                     self._repository.remove_document(doc.id or "")
                     removed += 1
-                    self._logger.info(f"Removed missing document: {doc.uri}")
+                    self._logger.info(
+                        f"{i+1}/{total_docs} Removed missing document: {doc.uri}"
+                    )
             else:
                 # Document without URI (text content)
                 try:
@@ -201,7 +203,7 @@ class SQLiteRag:
 
                     reprocessed += 1
                     self._logger.debug(
-                        f"Reprocessed text document: {doc.content[:20]!r}..."
+                        f"{i+1}/{total_docs} Reprocessed text document: {doc.content[:20]!r}..."
                     )
                 except Exception as e:
                     self._logger.error(f"Error processing text document {doc.id}: {e}")

@@ -12,24 +12,24 @@ class Settings:
     #
 
     model_path_or_name: str = (
-        "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-f16.gguf"
+        "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf"
     )
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text
     model_options: str = ""
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createoptions-text
     model_context_options: str = (
-        "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=FLOAT16"
+        "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=INT8"
     )
 
-    vector_type: str = "FLOAT16"
+    vector_type: str = "INT8"
     embedding_dim: int = 1024
     other_vector_options: str = (
         "distance=cosine"  # e.g. distance=metric,other=value,...
     )
 
-    chunk_size: int = 128
+    chunk_size: int = 384
     # Tokens overlap between chunks
-    chunk_overlap: int = 20
+    chunk_overlap: int = 48
 
     #
     # Search settings
