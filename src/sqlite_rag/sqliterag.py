@@ -73,13 +73,16 @@ class SQLiteRag:
         self._engine.create_new_context()
 
         processed = 0
-        self._logger.info(f"Processing {len(files_to_process)} files...")
+        total_to_process = len(files_to_process)
+        self._logger.info(f"Processing {total_to_process} files...")
         try:
-            for file_path in files_to_process:
+            for i, file_path in enumerate(files_to_process):
                 content = FileReader.parse_file(file_path)
 
                 if not content:
-                    self._logger.warning(f"Skipping empty file: {file_path}")
+                    self._logger.warning(
+                        f"{i+1}/{total_to_process} Skipping empty file: {file_path}"
+                    )
                     continue
 
                 uri = (
@@ -91,10 +94,12 @@ class SQLiteRag:
 
                 exists = self._repository.document_exists_by_hash(document.hash())
                 if exists:
-                    self._logger.info(f"Unchanged: {file_path}")
+                    self._logger.info(
+                        f"{i+1}/{total_to_process} Unchanged: {file_path}"
+                    )
                     continue
 
-                self._logger.info(f"Processing: {file_path}")
+                self._logger.info(f"{i+1}/{total_to_process} Processing: {file_path}")
                 document = self._engine.process(document)
 
                 self._repository.add_document(document)

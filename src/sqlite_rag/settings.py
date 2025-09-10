@@ -18,7 +18,7 @@ class Settings:
     model_options: str = ""
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createoptions-text
     model_context_options: str = (
-        "generate_embedding=1,normalize_embedding=1,pooling_type=mean"
+        "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=FLOAT16"
     )
 
     vector_type: str = "FLOAT16"
