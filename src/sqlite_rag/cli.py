@@ -32,10 +32,26 @@ app = typer.Typer()
 cli = CLI(app)
 
 
+# Global database option
+def database_option():
+    return typer.Option(
+        "./sqliterag.sqlite",
+        "--database",
+        "-db",
+        help="Path to the SQLite database file",
+    )
+
+
+def show_database_path(db_path: str):
+    """Display current database path"""
+    typer.echo(f"Database: {Path(db_path).resolve()}")
+
+
 @app.command("settings")
-def show_settings():
+def show_settings(database: str = database_option()):
     """Show current settings"""
-    rag = SQLiteRag.create()
+    show_database_path(database)
+    rag = SQLiteRag.create(database, require_existing=True)
     current_settings = rag.get_settings()
 
     typer.echo("Current settings:")
@@ -43,8 +59,9 @@ def show_settings():
         typer.echo(f"  {key}: {value}")
 
 
-@app.command("set")
-def set_settings(
+@app.command("configure")
+def configure_settings(
+    database: str = database_option(),
     model_path_or_name: Optional[str] = typer.Option(
         None, help="Path to the embedding model file or Hugging Face model name"
     ),
@@ -79,12 +96,14 @@ def set_settings(
         None, help="Weight for vector search results"
     ),
 ):
-    """Change default settings for the RAG system.
+    """Configure settings for the RAG system.
 
     Update model configuration, embedding parameters, chunking settings,
     and search weights. Only specify the options you want to change.
     Use 'sqlite-rag settings' to view current values.
     """
+    show_database_path(database)
+
     # Build updates dict from all provided parameters
     updates = {
         "model_path_or_name": model_path_or_name,
@@ -104,21 +123,22 @@ def set_settings(
     updates = {k: v for k, v in updates.items() if v is not None}
 
     if not updates:
-        typer.echo("No settings provided to update.")
-        show_settings()
+        typer.echo("No settings provided to configure.")
+        show_settings(database)
         return
 
-    conn = Database.new_connection()
+    conn = Database.new_connection(database)
     settings_manager = SettingsManager(conn)
     settings_manager.prepare_settings(updates)
 
-    show_settings()
+    show_settings(database)
     typer.echo("Settings updated.")
 
 
 @app.command()
 def add(
     path: str = typer.Argument(..., help="File or directory path to add"),
+    database: str = database_option(),
     recursive: bool = typer.Option(
         False, "-r", "--recursive", help="Recursively add all files in directories"
     ),
@@ -135,9 +155,10 @@ def add(
     ),
 ):
     """Add a file path to the database"""
+    show_database_path(database)
     start_time = time.time()
 
-    rag = SQLiteRag.create()
+    rag = SQLiteRag.create(database)
     rag.add(
         path,
         recursive=recursive,
@@ -153,6 +174,7 @@ def add(
 def add_text(
     text: str,
     uri: Optional[str] = None,
+    database: str = database_option(),
     metadata: Optional[str] = typer.Option(
         None,
         "--metadata",
@@ -161,14 +183,16 @@ def add_text(
     ),
 ):
     """Add a text to the database"""
-    rag = SQLiteRag.create()
+    show_database_path(database)
+    rag = SQLiteRag.create(database)
     rag.add_text(text, uri=uri, metadata=json.loads(metadata or "{}"))
 
 
 @app.command("list")
-def list_documents():
+def list_documents(database: str = database_option()):
     """List all documents in the database"""
-    rag = SQLiteRag.create()
+    show_database_path(database)
+    rag = SQLiteRag.create(database, require_existing=True)
     documents = rag.list_documents()
 
     if not documents:
@@ -195,10 +219,12 @@ def list_documents():
 @app.command()
 def remove(
     identifier: str,
+    database: str = database_option(),
     yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt"),
 ):
     """Remove document by path or UUID"""
-    rag = SQLiteRag.create()
+    show_database_path(database)
+    rag = SQLiteRag.create(database, require_existing=True)
 
     # Find the document first
     document = rag.find_document(identifier)
@@ -236,12 +262,14 @@ def remove(
 
 @app.command()
 def rebuild(
+    database: str = database_option(),
     remove_missing: bool = typer.Option(
         False, "--remove-missing", help="Remove documents whose files are not found"
-    )
+    ),
 ):
     """Rebuild embeddings and full-text index"""
-    rag = SQLiteRag.create()
+    show_database_path(database)
+    rag = SQLiteRag.create(database, require_existing=True)
 
     typer.echo("Rebuild process...")
 
@@ -256,10 +284,12 @@ def rebuild(
 
 @app.command()
 def reset(
-    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt")
+    database: str = database_option(),
+    yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt"),
 ):
     """Reset/clear the entire database"""
-    rag = SQLiteRag.create()
+    show_database_path(database)
+    rag = SQLiteRag.create(database, require_existing=True)
 
     # Show warning and ask for confirmation unless -y flag is used
     if not yes:
@@ -286,6 +316,7 @@ def reset(
 @app.command()
 def search(
     query: str,
+    database: str = database_option(),
     limit: int = typer.Option(10, help="Number of results to return"),
     debug: bool = typer.Option(
         False,
@@ -298,9 +329,10 @@ def search(
     ),
 ):
     """Search for documents using hybrid vector + full-text search"""
+    show_database_path(database)
     start_time = time.time()
 
-    rag = SQLiteRag.create()
+    rag = SQLiteRag.create(database, require_existing=True)
     results = rag.search(query, top_k=limit)
 
     search_time = time.time() - start_time
@@ -314,14 +346,16 @@ def search(
 
 @app.command()
 def quantize(
+    database: str = database_option(),
     cleanup: bool = typer.Option(
         False,
         "--cleanup",
         help="Clean up quantization structures instead of creating them",
-    )
+    ),
 ):
     """Quantize vectors for faster search or clean up quantization structures"""
-    rag = SQLiteRag.create()
+    show_database_path(database)
+    rag = SQLiteRag.create(database, require_existing=True)
 
     if cleanup:
         typer.echo("Cleaning up quantization structures...")

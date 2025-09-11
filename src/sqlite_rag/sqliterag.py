@@ -36,13 +36,24 @@ class SQLiteRag:
 
     @staticmethod
     def create(
-        db_path: str = "./sqliterag.sqlite", settings: Optional[dict[str, Any]] = None
+        db_path: str = "./sqliterag.sqlite",
+        settings: Optional[dict[str, Any]] = None,
+        require_existing: bool = False,
     ) -> "SQLiteRag":
         """Create a new SQLiteRag instance with the given settings.
 
         It initializes the database connection and prepares the environment.
         If no new settings are provided, it uses the default settings or load
-        the settings used in the last execution."""
+        the settings used in the last execution.
+
+        Args:
+            db_path: Path to the SQLite database file
+            settings: Optional settings to override defaults
+            require_existing: If True, raises FileNotFoundError if database doesn't exist
+        """
+
+        if require_existing and not Path(db_path).exists():
+            raise FileNotFoundError(f"Database file {db_path} does not exist.")
 
         conn = Database.new_connection(db_path)
 

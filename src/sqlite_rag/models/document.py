@@ -18,5 +18,5 @@ class Document:
     chunks: list["Chunk"] = []
 
     def hash(self) -> str:
-        """Generate a hash for the document content"""
-        return hashlib.blake2b(self.content.encode()).hexdigest()
+        """Generate a hash for the document content using SHA-3 for maximum collision resistance"""
+        return hashlib.sha3_256(self.content.encode()).hexdigest()
