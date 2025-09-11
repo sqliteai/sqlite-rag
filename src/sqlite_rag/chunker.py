@@ -161,10 +161,16 @@ class Chunker:
 
             if overlap_text:
                 combined_content = overlap_text + " " + current_content
+                # Core content starts after overlap and separator
+                core_start_pos = len(overlap_text) + 1
             else:
                 combined_content = current_content
+                # No overlap, core starts at beginning
+                core_start_pos = 0
 
-            overlapped_chunks.append(Chunk(content=combined_content))
+            overlapped_chunks.append(
+                Chunk(content=combined_content, core_start_pos=core_start_pos)
+            )
 
         return overlapped_chunks
 

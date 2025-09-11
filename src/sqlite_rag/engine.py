@@ -170,6 +170,7 @@ class Engine:
                 documents.content as document_content,
                 documents.metadata,
                 chunks.content AS snippet,
+                chunks.core_start_pos,
                 vec_rank,
                 fts_rank,
                 combined_rank,
@@ -200,7 +201,8 @@ class Engine:
                     content=row["document_content"],
                     metadata=json.loads(row["metadata"]) if row["metadata"] else {},
                 ),
-                snippet=row["snippet"],
+                # remove overlapping text from the snippet
+                snippet=row["snippet"][row["core_start_pos"] :],
                 vec_rank=row["vec_rank"],
                 fts_rank=row["fts_rank"],
                 combined_rank=row["combined_rank"],

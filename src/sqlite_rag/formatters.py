@@ -180,7 +180,7 @@ class ModernDetailedFormatter(SearchResultFormatter):
 
 
 class TableDebugFormatter(SearchResultFormatter):
-    """Legacy debug formatter for backwards compatibility."""
+    """Table view debug formatter."""
 
     def format_results(self, results: List[DocumentResult], query: str) -> None:
         if not results:
@@ -220,34 +220,6 @@ class TableDebugFormatter(SearchResultFormatter):
             typer.echo(
                 f"{idx:<3} {snippet:<55} {uri:<35} {c_rank:<33} {v_rank:<8} {fts_rank:<9} {v_dist:<18} {fts_score:<18}"
             )
-
-
-class LegacyCompactFormatter(SearchResultFormatter):
-    """Legacy compact formatter for backwards compatibility."""
-
-    def format_results(self, results: List[DocumentResult], query: str) -> None:
-        if not results:
-            typer.echo("No documents found matching the query.")
-            return
-
-        typer.echo(f"Found {len(results)} documents:")
-
-        # Clean simple table for normal view
-        typer.echo(f"{'#':<3} {'Preview':<60} {'URI':<40}")
-        typer.echo("─" * 105)
-
-        for idx, doc in enumerate(results, 1):
-            # Clean snippet display
-            snippet = doc.snippet.replace("\n", " ").replace("\r", "")
-            if len(snippet) > 57:
-                snippet = snippet[:54] + "..."
-
-            # Clean URI display
-            uri = doc.document.uri or "N/A"
-            if len(uri) > 37:
-                uri = "..." + uri[-34:]
-
-            typer.echo(f"{idx:<3} {snippet:<60} {uri:<40}")
 
 
 def get_formatter(

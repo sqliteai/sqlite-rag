@@ -7,3 +7,4 @@ class Chunk:
     document_id: int | None = None
     content: str = ""
     embedding: str | bytes = b""
+    core_start_pos: int = 0
