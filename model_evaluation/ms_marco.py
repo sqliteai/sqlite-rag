@@ -1,5 +1,6 @@
 import argparse
 import json
+import time
 from pathlib import Path
 
 import numpy as np
@@ -8,38 +9,76 @@ import pandas as pd
 from sqlite_rag import SQLiteRag
 
 
+def calculate_dcg(relevance_scores):
+    """Calculate Discounted Cumulative Gain"""
+    dcg = 0.0
+    for i, rel in enumerate(relevance_scores):
+        dcg += rel / np.log2(i + 2)  # i+2 because log2(1) = 0
+    return dcg
+
+
+def calculate_ndcg(predicted_relevance, ideal_relevance):
+    """Calculate Normalized Discounted Cumulative Gain"""
+    if not predicted_relevance:
+        return 0.0
+
+    dcg = calculate_dcg(predicted_relevance)
+    idcg = calculate_dcg(ideal_relevance)
+
+    if idcg == 0:
+        return 0.0
+
+    return dcg / idcg
+
+
 def test_ms_marco_processing(
     limit_rows=None, database_path="ms_marco_test.sqlite", rag_settings=None
 ):
     """Test processing MS MARCO dataset with SQLiteRag"""
 
+    start_time = time.time()
+
     if rag_settings is None:
         rag_settings = {"chunk_size": 1000, "chunk_overlap": 0}
 
     # Load the MS MARCO test dataset
+    print("Loading MS MARCO dataset...")
+    load_start = time.time()
     parquet_path = Path("ms_marco_test.parquet")
     if not parquet_path.exists():
         raise FileNotFoundError(f"Dataset file {parquet_path} not found")
 
     df = pd.read_parquet(parquet_path)
+    load_time = time.time() - load_start
 
     # Limit rows if specified
     if limit_rows:
         df = df.head(limit_rows)
         print(
-            f"Loaded MS MARCO dataset with {len(df)} samples (limited from full dataset)"
+            f"Loaded MS MARCO dataset with {len(df)} samples (limited from full dataset) in {load_time:.2f}s"
         )
     else:
-        print(f"Loaded MS MARCO dataset with {len(df)} samples")
+        print(f"Loaded MS MARCO dataset with {len(df)} samples in {load_time:.2f}s")
+
+    if Path(database_path).exists():
+        print(
+            f"Warning: Database file {database_path} already exists and will be overwritten."
+        )
+        Path(database_path).unlink()
 
     # Create SQLiteRag instance with provided settings
+    print("Initializing SQLiteRag...")
+    init_start = time.time()
     rag = SQLiteRag.create(database_path, settings=rag_settings)
+    init_time = time.time() - init_start
+    print(f"SQLiteRag initialized in {init_time:.2f}s")
 
     # Process and add passages to the database
     total_passages_added = 0
     total_samples = len(df)
+    processing_start = time.time()
 
-    print("Adding passages to sqlite_rag...")
+    print(f"Adding passages to sqlite_rag... (processing {total_samples} queries)")
 
     for idx, (_, row) in enumerate(df.iterrows(), 1):
         query_id = row["query_id"]
@@ -74,12 +113,18 @@ def test_ms_marco_processing(
 
         # Progress update every 100 samples
         if idx % 100 == 0:
+            elapsed = time.time() - processing_start
+            rate = idx / elapsed if elapsed > 0 else 0
+            eta = (total_samples - idx) / rate if rate > 0 else 0
             print(
-                f"Processed {idx}/{total_samples} samples ({total_passages_added} passages)"
+                f"Progress: {idx}/{total_samples} queries ({idx/total_samples*100:.1f}%) | "
+                f"{total_passages_added} passages | {rate:.1f} queries/s | "
+                f"ETA: {eta/60:.1f}m"
             )
 
+    processing_time = time.time() - processing_start
     print(
-        f"Finished! Added {total_passages_added} passages from {total_samples} queries"
+        f"Processing completed! Added {total_passages_added} passages from {total_samples} queries in {processing_time:.2f}s"
     )
 
     # Verify data was added correctly
@@ -110,6 +155,18 @@ def test_ms_marco_processing(
     print("\nCurrent settings:")
     print(f"  chunk_size: {settings_info['chunk_size']}")
     print(f"  chunk_overlap: {settings_info['chunk_overlap']}")
+    print(f"  weight_fts: {settings_info.get('weight_fts', 1.0)}")
+    print(f"  weight_vec: {settings_info.get('weight_vec', 1.0)}")
+
+    total_time = time.time() - start_time
+    print(f"\n{'='*60}")
+    print("TIMING SUMMARY:")
+    print(f"  Dataset loading: {load_time:.2f}s")
+    print(f"  SQLiteRag init:  {init_time:.2f}s")
+    print(f"  Processing:      {processing_time:.2f}s")
+    print(f"  Total time:      {total_time:.2f}s")
+    print(f"  Average rate:    {total_passages_added/processing_time:.1f} passages/s")
+    print(f"{'='*60}")
 
     rag.close()
     return total_passages_added, len(queries_dict)
@@ -148,7 +205,12 @@ def evaluate_search_quality(
 
     # Metrics for different top-k values
     k_values = [1, 3, 5, 10]
-    metrics = {k: {"hit_rate": 0, "reciprocal_ranks": []} for k in k_values}
+    metrics = {
+        k: {"hit_rate": 0, "reciprocal_ranks": [], "ndcg_scores": []} for k in k_values
+    }
+
+    # Track queries with no matches at HR@1 for detailed output
+    failed_hr1_queries = []
 
     total_queries = 0
     queries_with_relevant = 0
@@ -173,24 +235,44 @@ def evaluate_search_quality(
         search_results = rag.search(query_text, top_k=10)
 
         # Check results for each k value
+        hr1_found = False  # Track if any relevant result found in top-1
+
         for k in k_values:
             top_k_results = search_results[:k]
 
             # Find relevant results in top-k
             relevant_found = False
             first_relevant_rank = None
+            predicted_relevance = []  # For NDCG calculation
 
             for rank, result in enumerate(top_k_results, 1):
                 metadata = result.document.metadata
-                if (
+                is_relevant = (
                     metadata
                     and metadata.get("query_id") == str(query_id)
                     and metadata.get("is_selected")
-                ):
+                )
 
+                # Add relevance score (1 for relevant, 0 for non-relevant)
+                predicted_relevance.append(1.0 if is_relevant else 0.0)
+
+                if is_relevant:
                     if not relevant_found:
                         relevant_found = True
                         first_relevant_rank = rank
+
+                        # Track HR@1 success
+                        if k == 1:
+                            hr1_found = True
+
+            # Calculate NDCG@k
+            # Ideal relevance: all relevant docs at the top
+            num_relevant = len(selected_indices)
+            ideal_relevance = [1.0] * min(num_relevant, k) + [0.0] * max(
+                0, k - num_relevant
+            )
+            ndcg_score = calculate_ndcg(predicted_relevance, ideal_relevance)
+            metrics[k]["ndcg_scores"].append(ndcg_score)
 
             # Update hit rate
             if relevant_found:
@@ -201,6 +283,10 @@ def evaluate_search_quality(
                 metrics[k]["reciprocal_ranks"].append(1.0 / first_relevant_rank)
             else:
                 metrics[k]["reciprocal_ranks"].append(0.0)
+
+        # Track queries that failed HR@1
+        if not hr1_found:
+            failed_hr1_queries.append({"query_id": query_id, "query": query_text})
 
         # Progress update
         if (idx + 1) % 50 == 0:
@@ -246,11 +332,27 @@ def evaluate_search_quality(
         f"{'MRR':<20} {mrr_values[0]:<10} {mrr_values[1]:<10} {mrr_values[2]:<10} {mrr_values[3]:<10}"
     )
 
+    # NDCG@k
+    ndcg_values = []
+    for k in k_values:
+        if metrics[k]["ndcg_scores"]:
+            ndcg = np.mean(metrics[k]["ndcg_scores"])
+            ndcg_values.append(f"{ndcg:.3f}")
+        else:
+            ndcg_values.append("0.000")
+
+    output(
+        f"{'NDCG':<20} {ndcg_values[0]:<10} {ndcg_values[1]:<10} {ndcg_values[2]:<10} {ndcg_values[3]:<10}"
+    )
+
     output(f"\n{'='*60}")
     output("INTERPRETATION:")
     output("- Hit Rate: % of queries where at least 1 relevant result appears in top-k")
     output("- MRR: Mean Reciprocal Rank, higher is better (max=1.0)")
-    output("- Good performance: HR@5 > 0.7, MRR@5 > 0.5")
+    output(
+        "- NDCG: Normalized Discounted Cumulative Gain, considers relevance and position (max=1.0)"
+    )
+    output("- Good performance: HR@5 > 0.7, MRR@5 > 0.5, NDCG@5 > 0.6")
     output(f"{'='*60}")
 
     # Save to file if specified
@@ -260,6 +362,17 @@ def evaluate_search_quality(
             f.write(f"Database: {database_path}\n")
             f.write(f"Limit rows: {limit_rows if limit_rows else 'All'}\n\n")
             f.write("\n".join(output_lines))
+
+            # Add list of queries that failed HR@1
+            if failed_hr1_queries:
+                f.write(f"\n\n{'='*60}\n")
+                f.write(
+                    f"QUERIES WITH NO MATCHES AT HR@1 ({len(failed_hr1_queries)} queries):\n"
+                )
+                f.write(f"{'='*60}\n\n")
+                for i, query_info in enumerate(failed_hr1_queries, 1):
+                    f.write(f"{i}. Query ID: {query_info['query_id']}\n")
+                    f.write(f"   Query: {query_info['query']}\n\n")
 
         print(f"\nResults saved to: {output_file}")
 
@@ -294,6 +407,8 @@ def create_example_config():
         "rag_settings": {
             "chunk_size": 1000,
             "chunk_overlap": 0,
+            "weight_fts": 1.0,
+            "weight_vec": 1.0,
             "model_path_or_name": "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf",
             "model_options": "",
             "model_context_options": "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=INT8",

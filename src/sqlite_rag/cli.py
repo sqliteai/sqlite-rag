@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import shlex
 import sys
 import time
@@ -401,6 +402,8 @@ def download_model(
 
     try:
         # Download the specific GGUF file
+        # Enable fast transfer
+        os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
         downloaded_path = hf_hub_download(
             repo_id=model_id,
             filename=gguf_file,
