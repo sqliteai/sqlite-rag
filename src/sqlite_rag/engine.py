@@ -26,22 +26,22 @@ class Engine:
         """Load the model model from the specified path
         or download it from Hugging Face if not found."""
 
-        model_path = Path(self._settings.model_path_or_name)
+        model_path = Path(self._settings.model_path)
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found at {model_path}")
 
-        # model_path = self.settings.model_path_or_name
-        # if not Path(self.settings.model_path_or_name).exists():
+        # model_path = self.settings.model_path
+        # if not Path(self.settings.model_path).exists():
         #     # check if exists locally or try to download it from Hugging Face
         #     model_path = hf_hub_download(
-        #         repo_id=self.settings.model_path_or_name,
+        #         repo_id=self.settings.model_path,
         #         filename="model-q4_0.gguf",  # GGUF format
         #         cache_dir="./models"
         #     )
 
         self._conn.execute(
             "SELECT llm_model_load(?, ?);",
-            (self._settings.model_path_or_name, self._settings.model_options),
+            (self._settings.model_path, self._settings.model_options),
         )
 
     def process(self, document: Document) -> Document:

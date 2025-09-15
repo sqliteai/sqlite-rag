@@ -462,7 +462,7 @@ def create_example_config():
             "chunk_overlap": 0,
             "weight_fts": 1.0,
             "weight_vec": 1.0,
-            "model_path_or_name": "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf",
+            "model_path": "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf",
             "model_options": "",
             "model_context_options": "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=INT8",
             "vector_type": "INT8",

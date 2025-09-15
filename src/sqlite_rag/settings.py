@@ -11,7 +11,7 @@ class Settings:
     # Model and embedding settings
     #
 
-    model_path_or_name: str = (
+    model_path: str = (
         "./models/unsloth/embeddinggemma-300m-GGUF/embeddinggemma-300M-Q8_0.gguf"
     )
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text
@@ -62,21 +62,34 @@ class SettingsManager:
         )
         self.connection.commit()
 
-    def prepare_settings(self, settings: Optional[dict[str, Any]]) -> Settings:
+    def configure(
+        self, settings: Optional[dict[str, Any]], force: bool = False
+    ) -> Settings:
         """Load, initialize or update settings.
 
         If no settings are provided, load the last used settings or use defaults.
         If settings are provided, check for critical changes and update them.
+
+        Args:
+            settings: A dictionary of settings to update.
+            force: If True, skip critical changes check.
         """
         current_settings = self.load_settings()
         if current_settings:
             if settings:
                 new_settings = replace(current_settings, **settings)
 
-                if self.has_critical_changes(new_settings, current_settings):
-                    raise ValueError(
-                        "Critical settings changes detected. Please reset the database."
-                    )
+                has_critical = self.has_critical_changes(new_settings, current_settings)
+
+                if has_critical:
+                    if force:
+                        print(
+                            "Warning: Critical settings changes detected. Forcing update."
+                        )
+                    else:
+                        raise ValueError(
+                            "Critical settings changes detected. Please reset the database."
+                        )
                 # Update new settings
                 current_settings = self.store(new_settings)
         elif settings:
@@ -133,7 +146,7 @@ class SettingsManager:
     ) -> bool:
         """Check if the new settings have critical changes compared to the current settings."""
         return (
-            new_settings.model_path_or_name != current_settings.model_path_or_name
+            new_settings.model_path != current_settings.model_path
             or new_settings.embedding_dim != current_settings.embedding_dim
             or new_settings.vector_type != current_settings.vector_type
         )

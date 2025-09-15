@@ -33,7 +33,7 @@ class TestCLI:
 
             runner = CliRunner()
 
-            model_path = Path(Settings().model_path_or_name).absolute()
+            model_path = Path(Settings().model_path).absolute()
 
             # Change to the temporary directory so CLI finds the database
             original_cwd = os.getcwd()
@@ -101,5 +101,5 @@ class TestCLI:
         )
         assert result.exit_code == 0
 
-        assert f"model_path_or_name: {model_path}" in result.stdout
+        assert f"model_path: {model_path}" in result.stdout
         assert "other_vector_options: distance=L2" in result.stdout

@@ -58,7 +58,7 @@ class SQLiteRag:
         conn = Database.new_connection(db_path)
 
         settings_manager = SettingsManager(conn)
-        current_settings = settings_manager.prepare_settings(settings)
+        current_settings = settings_manager.configure(settings)
 
         Database.initialize(conn, current_settings)
 

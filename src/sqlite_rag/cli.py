@@ -2,7 +2,6 @@
 import json
 import os
 import shlex
-import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -16,6 +15,39 @@ from .formatters import get_formatter
 from .sqliterag import SQLiteRag
 
 
+class RAGContext:
+    """Manage CLI state and RAG object reuse"""
+
+    def __init__(self):
+        self.rag: Optional[SQLiteRag] = None
+        self.in_repl = False
+        self.database: str = ""
+
+    def enter_repl(self):
+        """Enter REPL mode"""
+        self.in_repl = True
+
+    def get_rag(self, database_path: str, require_existing: bool = False) -> SQLiteRag:
+        """Create or reuse SQLiteRag instance"""
+        if not self.database:
+            raise ValueError("Database path not set. Use --database option.")
+
+        if self.in_repl:
+            if self.rag is None:
+                typer.echo(f"Debug: Using database path: {self.database}")
+                self.rag = SQLiteRag.create(
+                    self.database, require_existing=require_existing
+                )
+                typer.echo(f"Database: {Path(self.database).resolve()}")
+            return self.rag
+        else:
+            # Regular mode - create new instance
+            return SQLiteRag.create(database_path, require_existing=require_existing)
+
+
+rag_context = RAGContext()
+
+
 class CLI:
     """Main class to handle CLI commands"""
 
@@ -23,36 +55,39 @@ class CLI:
         self.app = app
 
     def __call__(self, *args, **kwds):
-        if len(sys.argv) == 1:
-            repl_mode()
-        else:
-            self.app()
+        self.app()
 
 
 app = typer.Typer()
 cli = CLI(app)
 
 
-# Global database option
-def database_option():
-    return typer.Option(
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    database: str = typer.Option(
         "./sqliterag.sqlite",
         "--database",
         "-db",
         help="Path to the SQLite database file",
-    )
+    ),
+):
+    """SQLite RAG - Retrieval Augmented Generation with SQLite"""
+    ctx.ensure_object(dict)
+    rag_context.database = database
+    ctx.obj["rag_context"] = rag_context
 
-
-def show_database_path(db_path: str):
-    """Display current database path"""
-    typer.echo(f"Database: {Path(db_path).resolve()}")
+    # If no subcommand was invoked, enter REPL mode
+    if ctx.invoked_subcommand is None:
+        rag_context.enter_repl()
+        repl_mode()
 
 
 @app.command("settings")
-def show_settings(database: str = database_option()):
+def show_settings(ctx: typer.Context):
     """Show current settings"""
-    show_database_path(database)
-    rag = SQLiteRag.create(database, require_existing=True)
+    rag_context = ctx.obj["rag_context"]
+    rag = rag_context.get_rag(rag_context.database, require_existing=True)
     current_settings = rag.get_settings()
 
     typer.echo("Current settings:")
@@ -62,9 +97,14 @@ def show_settings(database: str = database_option()):
 
 @app.command("configure")
 def configure_settings(
-    database: str = database_option(),
-    model_path_or_name: Optional[str] = typer.Option(
-        None, help="Path to the embedding model file or Hugging Face model name"
+    ctx: typer.Context,
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Force update even if critical settings change (like model or embedding dimension)",
+    ),
+    model_path: Optional[str] = typer.Option(
+        None, help="Path to the embedding model file (.gguf)"
     ),
     model_config: Optional[str] = typer.Option(
         None, help="Model configuration parameters"
@@ -103,11 +143,11 @@ def configure_settings(
     and search weights. Only specify the options you want to change.
     Use 'sqlite-rag settings' to view current values.
     """
-    show_database_path(database)
+    rag_context = ctx.obj["rag_context"]
 
     # Build updates dict from all provided parameters
     updates = {
-        "model_path_or_name": model_path_or_name,
+        "model_path": model_path,
         "model_config": model_config,
         "embedding_dim": embedding_dim,
         "vector_type": vector_type,
@@ -125,21 +165,21 @@ def configure_settings(
 
     if not updates:
         typer.echo("No settings provided to configure.")
-        show_settings(database)
+        show_settings(ctx)
         return
 
-    conn = Database.new_connection(database)
+    conn = Database.new_connection(rag_context.database)
     settings_manager = SettingsManager(conn)
-    settings_manager.prepare_settings(updates)
+    settings_manager.configure(updates)
 
-    show_settings(database)
+    show_settings(ctx)
     typer.echo("Settings updated.")
 
 
 @app.command()
 def add(
+    ctx: typer.Context,
     path: str = typer.Argument(..., help="File or directory path to add"),
-    database: str = database_option(),
     recursive: bool = typer.Option(
         False, "-r", "--recursive", help="Recursively add all files in directories"
     ),
@@ -156,10 +196,10 @@ def add(
     ),
 ):
     """Add a file path to the database"""
-    show_database_path(database)
+    rag_context = ctx.obj["rag_context"]
     start_time = time.time()
 
-    rag = SQLiteRag.create(database)
+    rag = rag_context.get_rag(rag_context.database)
     rag.add(
         path,
         recursive=recursive,
@@ -173,9 +213,9 @@ def add(
 
 @app.command()
 def add_text(
+    ctx: typer.Context,
     text: str,
     uri: Optional[str] = None,
-    database: str = database_option(),
     metadata: Optional[str] = typer.Option(
         None,
         "--metadata",
@@ -184,17 +224,17 @@ def add_text(
     ),
 ):
     """Add a text to the database"""
-    show_database_path(database)
-    rag = SQLiteRag.create(database)
+    rag_context = ctx.obj["rag_context"]
+    rag = rag_context.get_rag(rag_context.database)
     rag.add_text(text, uri=uri, metadata=json.loads(metadata or "{}"))
     typer.echo("Text added.")
 
 
 @app.command("list")
-def list_documents(database: str = database_option()):
+def list_documents(ctx: typer.Context):
     """List all documents in the database"""
-    show_database_path(database)
-    rag = SQLiteRag.create(database, require_existing=True)
+    rag_context = ctx.obj["rag_context"]
+    rag = rag_context.get_rag(rag_context.database, require_existing=True)
     documents = rag.list_documents()
 
     if not documents:
@@ -220,13 +260,13 @@ def list_documents(database: str = database_option()):
 
 @app.command()
 def remove(
+    ctx: typer.Context,
     identifier: str,
-    database: str = database_option(),
     yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt"),
 ):
     """Remove document by path or UUID"""
-    show_database_path(database)
-    rag = SQLiteRag.create(database, require_existing=True)
+    rag_context = ctx.obj["rag_context"]
+    rag = rag_context.get_rag(rag_context.database, require_existing=True)
 
     # Find the document first
     document = rag.find_document(identifier)
@@ -264,14 +304,14 @@ def remove(
 
 @app.command()
 def rebuild(
-    database: str = database_option(),
+    ctx: typer.Context,
     remove_missing: bool = typer.Option(
         False, "--remove-missing", help="Remove documents whose files are not found"
     ),
 ):
     """Rebuild embeddings and full-text index"""
-    show_database_path(database)
-    rag = SQLiteRag.create(database, require_existing=True)
+    rag_context = ctx.obj["rag_context"]
+    rag = rag_context.get_rag(rag_context.database, require_existing=True)
 
     typer.echo("Rebuild process...")
 
@@ -286,12 +326,12 @@ def rebuild(
 
 @app.command()
 def reset(
-    database: str = database_option(),
+    ctx: typer.Context,
     yes: bool = typer.Option(False, "-y", "--yes", help="Skip confirmation prompt"),
 ):
     """Reset/clear the entire database"""
-    show_database_path(database)
-    rag = SQLiteRag.create(database, require_existing=True)
+    rag_context = ctx.obj["rag_context"]
+    rag = rag_context.get_rag(rag_context.database, require_existing=True)
 
     # Show warning and ask for confirmation unless -y flag is used
     if not yes:
@@ -317,8 +357,8 @@ def reset(
 
 @app.command()
 def search(
+    ctx: typer.Context,
     query: str,
-    database: str = database_option(),
     limit: int = typer.Option(10, help="Number of results to return"),
     debug: bool = typer.Option(
         False,
@@ -331,10 +371,10 @@ def search(
     ),
 ):
     """Search for documents using hybrid vector + full-text search"""
-    show_database_path(database)
+    rag_context = ctx.obj["rag_context"]
     start_time = time.time()
 
-    rag = SQLiteRag.create(database, require_existing=True)
+    rag = rag_context.get_rag(rag_context.database, require_existing=True)
     results = rag.search(query, top_k=limit)
 
     search_time = time.time() - start_time
@@ -348,7 +388,7 @@ def search(
 
 @app.command()
 def quantize(
-    database: str = database_option(),
+    ctx: typer.Context,
     cleanup: bool = typer.Option(
         False,
         "--cleanup",
@@ -356,8 +396,8 @@ def quantize(
     ),
 ):
     """Quantize vectors for faster search or clean up quantization structures"""
-    show_database_path(database)
-    rag = SQLiteRag.create(database, require_existing=True)
+    rag_context = ctx.obj["rag_context"]
+    rag = rag_context.get_rag(rag_context.database, require_existing=True)
 
     if cleanup:
         typer.echo("Cleaning up quantization structures...")
@@ -426,6 +466,11 @@ def download_model(
 def repl_mode():
     """Interactive REPL mode"""
     typer.echo("Entering interactive mode. Type 'help' for commands or 'exit' to quit.")
+    typer.echo(
+        "Note: --database and configure commands are not available in REPL mode."
+    )
+
+    disabled_features = ["configure", "--database", "-db"]
 
     while True:
         try:
@@ -448,6 +493,11 @@ def repl_mode():
                 try:
                     # Parse command and delegate to typer app
                     args = shlex.split(command)
+                    # Check for disabled commands in REPL
+                    if args and args[0] in disabled_features:
+                        typer.echo("Error: command is not available in REPL mode")
+                        continue
+
                     app(args, standalone_mode=False)
                 except SystemExit:
                     # Typer raises SystemExit on errors, catch it to stay in REPL

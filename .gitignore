@@ -1,6 +1,5 @@
-semsearch/
-docs/
-samples/headlines
+samples
+extensions
 
 # LLM models
 *.gguf

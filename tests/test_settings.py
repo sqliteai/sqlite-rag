@@ -8,7 +8,7 @@ class TestSettings:
     def test_store_settings(self, db_conn):
         settings_manager = SettingsManager(db_conn[0])
         settings = Settings(
-            model_path_or_name="test_model",
+            model_path="test_model",
             model_options="test_config",
             embedding_dim=768,
             vector_type="test_store",
@@ -22,7 +22,7 @@ class TestSettings:
         stored_settings = settings_manager.load_settings()
 
         assert stored_settings is not None
-        assert stored_settings.model_path_or_name == "test_model"
+        assert stored_settings.model_path == "test_model"
         assert stored_settings.model_options == "test_config"
         assert stored_settings.embedding_dim == 768
         assert stored_settings.vector_type == "test_store"
@@ -33,7 +33,7 @@ class TestSettings:
     def test_store_settings_when_exist(self, db_conn):
         settings_manager = SettingsManager(db_conn[0])
         settings = Settings(
-            model_path_or_name="test_model",
+            model_path="test_model",
             model_options="test_config",
             embedding_dim=768,
             vector_type="test_store",
@@ -46,7 +46,7 @@ class TestSettings:
 
         # Store again with different values
         new_settings = Settings(
-            model_path_or_name="new_model",
+            model_path="new_model",
             model_options="new_config",
             embedding_dim=512,
             vector_type="new_store",
@@ -59,7 +59,7 @@ class TestSettings:
         stored_settings = settings_manager.load_settings()
 
         assert stored_settings is not None
-        assert stored_settings.model_path_or_name == "new_model"
+        assert stored_settings.model_path == "new_model"
         assert stored_settings.model_options == "new_config"
         assert stored_settings.embedding_dim == 512
         assert stored_settings.vector_type == "new_store"
@@ -81,7 +81,7 @@ class TestSettings:
         loaded_settings = settings_manager.load_settings()
 
         assert loaded_settings is not None
-        assert loaded_settings.model_path_or_name == settings.model_path_or_name
+        assert loaded_settings.model_path == settings.model_path
         assert loaded_settings.model_options == settings.model_options
         assert loaded_settings.embedding_dim == settings.embedding_dim
         assert loaded_settings.vector_type == settings.vector_type
@@ -122,7 +122,7 @@ class TestSettings:
         assert not has_changes
 
         new_settings = Settings()
-        new_settings.model_path_or_name = "modified_model"
+        new_settings.model_path = "modified_model"
 
         has_changes = settings_manager.has_critical_changes(
             new_settings, current_settings
@@ -149,10 +149,10 @@ class TestSettings:
         """Test prepare_settings returns default settings when no existing settings and no input"""
         settings_manager = SettingsManager(db_conn[0])
 
-        result = settings_manager.prepare_settings(None)
+        result = settings_manager.configure(None)
 
         defaults = Settings()
-        assert result.model_path_or_name == defaults.model_path_or_name
+        assert result.model_path == defaults.model_path
         assert result.embedding_dim == defaults.embedding_dim
         assert result.chunk_size == defaults.chunk_size
 
@@ -160,7 +160,7 @@ class TestSettings:
         """Test prepare_settings stores and returns custom settings when no existing settings"""
         settings_manager = SettingsManager(db_conn[0])
 
-        result = settings_manager.prepare_settings(
+        result = settings_manager.configure(
             {"chunk_size": 5000, "quantize_scan": False}
         )
 
@@ -168,7 +168,7 @@ class TestSettings:
         assert result.quantize_scan is False
         # Check defaults are preserved
         defaults = Settings()
-        assert result.model_path_or_name == defaults.model_path_or_name
+        assert result.model_path == defaults.model_path
 
     def test_prepare_settings_with_existing_and_no_input(self, db_conn):
         """Test prepare_settings returns existing settings when they exist and no input provided"""
@@ -176,7 +176,7 @@ class TestSettings:
         existing = Settings(chunk_size=3000, quantize_scan=False)
         settings_manager.store(existing)
 
-        result = settings_manager.prepare_settings(None)
+        result = settings_manager.configure(None)
 
         assert result.chunk_size == 3000
         assert result.quantize_scan is False
@@ -187,7 +187,7 @@ class TestSettings:
         existing = Settings(chunk_size=3000, chunk_overlap=100)
         settings_manager.store(existing)
 
-        result = settings_manager.prepare_settings(
+        result = settings_manager.configure(
             {"chunk_size": 4000, "quantize_scan": False}
         )
 
@@ -204,4 +204,4 @@ class TestSettings:
         import pytest
 
         with pytest.raises(ValueError, match="Critical settings changes detected"):
-            settings_manager.prepare_settings({"model_path_or_name": "new_model"})
+            settings_manager.configure({"model_path": "new_model"})
