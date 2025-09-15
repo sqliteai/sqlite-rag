@@ -1,6 +1,18 @@
 {
     "name": "Python 3.10",
     "image": "mcr.microsoft.com/devcontainers/python:3.10",
+    "runArgs": [
+        "--runtime",
+        "nvidia",
+        "--gpus",
+        "all",
+        // optional but make sure CUDA workloads are available
+        "--env",
+        "NVIDIA_VISIBLE_DEVICES=all",
+        // optional but make sure CUDA workloads are available
+        "--env",
+        "NVIDIA_DRIVER_CAPABILITIES=compute,utility"
+    ],
     "customizations": {
         "vscode": {
             "extensions": [
@@ -15,4 +27,12 @@
             ]
         }
     },
+    "hostRequirements": {
+        "gpu": "optional"
+    },
+    "remoteEnv": {
+        // optional but make sure CUDA workloads are available
+        "NVIDIA_VISIBLE_DEVICES": "all",
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility"
+    }
 }

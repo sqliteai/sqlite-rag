@@ -12,7 +12,7 @@ class Settings:
     #
 
     model_path_or_name: str = (
-        "./models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf"
+        "./models/unsloth/embeddinggemma-300m-GGUF/embeddinggemma-300M-Q8_0.gguf"
     )
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text
     model_options: str = ""
@@ -22,7 +22,7 @@ class Settings:
     )
 
     vector_type: str = "INT8"
-    embedding_dim: int = 1024
+    embedding_dim: int = 768
     other_vector_options: str = (
         "distance=cosine"  # e.g. distance=metric,other=value,...
     )

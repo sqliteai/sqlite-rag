@@ -1,0 +1,15 @@
+{
+  "database_path": "./databases/ms_marco_gemma_300M_Q8_650rows.sqlite",
+  "rag_settings": {
+    "chunk_size": 1000,
+    "chunk_overlap": 0,
+    "model_path_or_name": "./../models/unsloth/embeddinggemma-300m-GGUF/embeddinggemma-300M-Q8_0.gguf",
+    "model_options": "",
+    "model_context_options": "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=INT8",
+    "vector_type": "INT8",
+    "embedding_dim": 768,
+    "other_vector_options": "distance=cosine",
+    "weight_fts": 0.0,
+    "weight_vec": 1.0
+  }
+}

@@ -18,7 +18,7 @@ classifiers = [
 dependencies = [
     "attrs",
     "typer",
-    "huggingface_hub[cli]",
+    "huggingface_hub[hf_transfer]",
     "markitdown[all]",
     "sqlite-ai",
     "sqliteai-vector"
@@ -33,7 +33,10 @@ dev = [
     "flake8",
     "bandit",
     "isort",
-    "pre-commit"
+    "pre-commit",
+    "pyarrow",
+    "pandas",
+    "psutil"
 ]
 
 [project.urls]

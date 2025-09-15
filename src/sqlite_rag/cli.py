@@ -187,6 +187,7 @@ def add_text(
     show_database_path(database)
     rag = SQLiteRag.create(database)
     rag.add_text(text, uri=uri, metadata=json.loads(metadata or "{}"))
+    typer.echo("Text added.")
 
 
 @app.command("list")

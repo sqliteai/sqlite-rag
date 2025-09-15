@@ -1,0 +1,1318 @@
+Evaluation run on: 2025-09-15 15:25:41.505517
+Database: ./databases/ms_marco_qwen3_Q8_650rows.sqlite
+Limit rows: 650
+
+Evaluating on 650 queries (limited from full dataset)
+
+Running evaluation...
+
+============================================================
+SEARCH QUALITY EVALUATION RESULTS
+============================================================
+Total queries evaluated: 624
+Queries with relevant passages: 624
+
+Metric               @1         @3         @5         @10
+------------------------------------------------------------
+Hit Rate             0.316      0.657      0.857      0.984
+MRR                  0.316      0.462      0.508      0.527
+NDCG                 0.316      0.499      0.586      0.635
+
+============================================================
+MEMORY USAGE SUMMARY:
+  Average memory:  981.5 MB
+  Maximum memory:  1056.4 MB
+  Minimum memory:  406.0 MB
+
+============================================================
+INTERPRETATION:
+- Hit Rate: % of queries where at least 1 relevant result appears in top-k
+- MRR: Mean Reciprocal Rank, higher is better (max=1.0)
+- NDCG: Normalized Discounted Cumulative Gain, considers relevance and position (max=1.0)
+- Good performance: HR@5 > 0.7, MRR@5 > 0.5, NDCG@5 > 0.6
+============================================================
+
+============================================================
+QUERIES WITH NO MATCHES AT HR@1 (427 queries):
+============================================================
+
+1. Query ID: 1
+   Query: what are the benefits of fossil fuels
+
+2. Query ID: 2
+   Query: what is a apothem
+
+3. Query ID: 3
+   Query: average cost for custom canopy
+
+4. Query ID: 4
+   Query: what is a hardware in a computer
+
+5. Query ID: 5
+   Query: edi logistics definition
+
+6. Query ID: 8
+   Query: where is the amur leopard found
+
+7. Query ID: 9
+   Query: how much does it cost to spayed my female rabbit
+
+8. Query ID: 11
+   Query: is bougainvillea a shrub
+
+9. Query ID: 13
+   Query: what types of bacteria are found in the mouth
+
+10. Query ID: 15
+   Query: average wage of an actor
+
+11. Query ID: 17
+   Query: what is financial assets
+
+12. Query ID: 18
+   Query: Starch and _____ are common polysaccharide carbohydrates found in plants.
+
+13. Query ID: 19
+   Query: is cypress community storage flooded
+
+14. Query ID: 20
+   Query: what is a cost variance
+
+15. Query ID: 21
+   Query: where does bacteria come from
+
+16. Query ID: 25
+   Query: what constitutes battery
+
+17. Query ID: 26
+   Query: what causes yeast infection itching
+
+18. Query ID: 27
+   Query: What is the difference between mastic and thinset?
+
+19. Query ID: 28
+   Query: how long to steam artichokes in steamer
+
+20. Query ID: 31
+   Query: what is the postsynaptic density
+
+21. Query ID: 34
+   Query: which bring electrical impulses toward a cell body
+
+22. Query ID: 35
+   Query: what reform policies did mikhail gorbachev initiate
+
+23. Query ID: 37
+   Query: what temperature degree to cook crepes at
+
+24. Query ID: 38
+   Query: when must ira distributions begin
+
+25. Query ID: 39
+   Query: what qualifications do a police officer need
+
+26. Query ID: 41
+   Query: nervous system axon definition
+
+27. Query ID: 42
+   Query: what is gilded glass
+
+28. Query ID: 44
+   Query: subjectively define
+
+29. Query ID: 45
+   Query: can prison help the borderline?
+
+30. Query ID: 46
+   Query: average physician assistant salary boston ma
+
+31. Query ID: 47
+   Query: what are herbaceous perennials
+
+32. Query ID: 48
+   Query: what type of blood types are there
+
+33. Query ID: 49
+   Query: how long to dwarf hamsters live
+
+34. Query ID: 50
+   Query: what is the element family for plutonium
+
+35. Query ID: 52
+   Query: what is commercial leasing
+
+36. Query ID: 55
+   Query: what is reabsorbed in the proximal convoluted tubule
+
+37. Query ID: 56
+   Query: what day did president obama declare the war is over
+
+38. Query ID: 57
+   Query: what is torso
+
+39. Query ID: 58
+   Query: how fast are hurricanes
+
+40. Query ID: 60
+   Query: what does glucose blood test mean
+
+41. Query ID: 61
+   Query: who was william beveridge
+
+42. Query ID: 63
+   Query: where was the bauhaus built
+
+43. Query ID: 64
+   Query: prepositional phrases that modify a verb are called
+
+44. Query ID: 65
+   Query: what are some diseases caused diabetes
+
+45. Query ID: 66
+   Query: average cost of patio roof
+
+46. Query ID: 67
+   Query: average cost to process an invoice
+
+47. Query ID: 71
+   Query: how much does itunes cost
+
+48. Query ID: 72
+   Query: the terms of the treaty of versailles for kids
+
+49. Query ID: 73
+   Query: ingested meaning in english
+
+50. Query ID: 74
+   Query: what is an angiosperm answers
+
+51. Query ID: 75
+   Query: average cost to install egress window
+
+52. Query ID: 78
+   Query: where is meadowbank
+
+53. Query ID: 81
+   Query: what is iron vitamin good for
+
+54. Query ID: 82
+   Query: what is a substation
+
+55. Query ID: 84
+   Query: salary increase in mtn
+
+56. Query ID: 85
+   Query: how long to broil round steak
+
+57. Query ID: 87
+   Query: what are lox food
+
+58. Query ID: 88
+   Query: cost to build walmart supercenter
+
+59. Query ID: 89
+   Query: how to use a semicolon in a letter
+
+60. Query ID: 90
+   Query: who is stephen hawking family
+
+61. Query ID: 91
+   Query: is randolph mantooth married
+
+62. Query ID: 92
+   Query: what is dynamic muscle contraction
+
+63. Query ID: 94
+   Query: what kind of insurance does a court reporter need
+
+64. Query ID: 95
+   Query: do i need to send photos for passport renewal
+
+65. Query ID: 98
+   Query: what is EIFS system
+
+66. Query ID: 99
+   Query: what does accent
+
+67. Query ID: 100
+   Query: what cut is a bolar roast
+
+68. Query ID: 102
+   Query: what type of epithelial tissue lines kidney tubules
+
+69. Query ID: 103
+   Query: what kind of liquid is custard
+
+70. Query ID: 106
+   Query: how much should restaurant food cost be
+
+71. Query ID: 107
+   Query: allele definition biology quizlet
+
+72. Query ID: 108
+   Query: what is rationalization in sociology
+
+73. Query ID: 109
+   Query: unconventional means
+
+74. Query ID: 110
+   Query: dea special agent physical requirements
+
+75. Query ID: 111
+   Query: what is perindopril
+
+76. Query ID: 113
+   Query: how long can you be on dialysis
+
+77. Query ID: 115
+   Query: reasons for the sinking of the titanic
+
+78. Query ID: 116
+   Query: what is normal pulse pressure range
+
+79. Query ID: 117
+   Query: when was clear air act passed
+
+80. Query ID: 118
+   Query: what part of the knee is the acl located
+
+81. Query ID: 119
+   Query: what is morphine used for
+
+82. Query ID: 120
+   Query: what are malpighian tubules
+
+83. Query ID: 122
+   Query: the meaning of the name hughes
+
+84. Query ID: 124
+   Query: the behaviorist movement rejected what practice of psychology
+
+85. Query ID: 125
+   Query: what is hep a caused by
+
+86. Query ID: 129
+   Query: how to make a word in a cell as hyperlink
+
+87. Query ID: 130
+   Query: what is the given name
+
+88. Query ID: 131
+   Query: highest paid actress ever
+
+89. Query ID: 132
+   Query: height of fence needed to keep deer out
+
+90. Query ID: 134
+   Query: where are the ossicles located
+
+91. Query ID: 139
+   Query: comparative heartbeats per year
+
+92. Query ID: 140
+   Query: what is polydextrose
+
+93. Query ID: 141
+   Query: how long does it take to become a pe teacher
+
+94. Query ID: 142
+   Query: what does plato allegory of the cave representations
+
+95. Query ID: 143
+   Query: what is a carrier of a disease
+
+96. Query ID: 144
+   Query: how much prednisone can i take
+
+97. Query ID: 145
+   Query: how do you keep cats from getting on your car
+
+98. Query ID: 148
+   Query: monosomy definition biology
+
+99. Query ID: 149
+   Query: etymology of name antonio
+
+100. Query ID: 150
+   Query: why do molecules of starch need to be digested
+
+101. Query ID: 151
+   Query: is an HVAC plenum necessary
+
+102. Query ID: 152
+   Query: secluded region of sunshine coast
+
+103. Query ID: 153
+   Query: how long keep self assessment records
+
+104. Query ID: 154
+   Query: trigeminal definition
+
+105. Query ID: 155
+   Query: what is metabolic disorder
+
+106. Query ID: 156
+   Query: what are ketones test strips
+
+107. Query ID: 157
+   Query: how much does it cost to have a fence put up
+
+108. Query ID: 158
+   Query: gestation period for whooping crane
+
+109. Query ID: 159
+   Query: where are majority of continental glaciers found
+
+110. Query ID: 160
+   Query: what degree is needed to become a counselor
+
+111. Query ID: 161
+   Query: genetic biodiversity definition
+
+112. Query ID: 162
+   Query: what is theme of pygmalion
+
+113. Query ID: 163
+   Query: is virtualization provides cost effective
+
+114. Query ID: 164
+   Query: education requirements for a dea agent
+
+115. Query ID: 165
+   Query: how long does a colonoscopy take to perform
+
+116. Query ID: 166
+   Query: what is serum tsh
+
+117. Query ID: 167
+   Query: what is the unit for hardness
+
+118. Query ID: 168
+   Query: what is the useful energy transferred when coal is burnt
+
+119. Query ID: 169
+   Query: what do you use an internal medicine
+
+120. Query ID: 170
+   Query: when do you pay congestion charge in london
+
+121. Query ID: 171
+   Query: where do tiger live a
+
+122. Query ID: 172
+   Query: do not expose the concrete surface to air having a temperature more than
+
+123. Query ID: 173
+   Query: what is market stability
+
+124. Query ID: 174
+   Query: what is considered a fast pulse rate
+
+125. Query ID: 175
+   Query: average salary of a teacher in texas
+
+126. Query ID: 177
+   Query: what is german brand sausage
+
+127. Query ID: 178
+   Query: what is a vts machine
+
+128. Query ID: 180
+   Query: why is punctuality important for dancing
+
+129. Query ID: 181
+   Query: is bismuth radioactive
+
+130. Query ID: 182
+   Query: can napping help your mood
+
+131. Query ID: 184
+   Query: What is lacking in diet if hair is thinning
+
+132. Query ID: 185
+   Query: what is azuki beans
+
+133. Query ID: 186
+   Query: how does a bail bondsman make money
+
+134. Query ID: 188
+   Query: height of spinach plant
+
+135. Query ID: 189
+   Query: closest airport to larissa greece
+
+136. Query ID: 192
+   Query: what government does us have
+
+137. Query ID: 193
+   Query: average cost for attorney fees
+
+138. Query ID: 194
+   Query: what is the incubation period for the common cold
+
+139. Query ID: 197
+   Query: what is a roquito pepper
+
+140. Query ID: 199
+   Query: how much does it cost for wind energy installation
+
+141. Query ID: 200
+   Query: actors who played pippin
+
+142. Query ID: 202
+   Query: what type of mountain is vinson massif
+
+143. Query ID: 203
+   Query: what is a source of variation in asexual reproduction
+
+144. Query ID: 204
+   Query: is molas sardinia
+
+145. Query ID: 205
+   Query: schumann cavity definition
+
+146. Query ID: 206
+   Query: how long to keep accounts for for HMRC
+
+147. Query ID: 209
+   Query: where does the quinceanera come from
+
+148. Query ID: 210
+   Query: what is dominance
+
+149. Query ID: 211
+   Query: what is SNCA gene
+
+150. Query ID: 212
+   Query: what functions do tendons serve
+
+151. Query ID: 214
+   Query: What was the Babylonian Empire
+
+152. Query ID: 216
+   Query: the average cost for university north texas
+
+153. Query ID: 217
+   Query: what determines gender of a baby
+
+154. Query ID: 219
+   Query: what is pepto bismol used for
+
+155. Query ID: 220
+   Query: what are the different kinds of pears
+
+156. Query ID: 221
+   Query: how deuterium is produced
+
+157. Query ID: 222
+   Query: roast beef cook temperature
+
+158. Query ID: 224
+   Query: what are the gatekeeper butterflies predators are
+
+159. Query ID: 225
+   Query: how long before to detect aids
+
+160. Query ID: 230
+   Query: whooping cough incubation period in adults
+
+161. Query ID: 233
+   Query: why is carbon dioxide inorganic
+
+162. Query ID: 235
+   Query: what ecosystem does a white owl live in
+
+163. Query ID: 236
+   Query: The immune system process that leads to the production of more white blood cells is known as
+
+164. Query ID: 243
+   Query: what was the original purpose of the aboriginal protection act
+
+165. Query ID: 244
+   Query: wonderlic score analysis
+
+166. Query ID: 245
+   Query: anaerobic blood culture top colour
+
+167. Query ID: 246
+   Query: where is saliva produced
+
+168. Query ID: 248
+   Query: how much should it cost to replace a rear wheel bearing
+
+169. Query ID: 249
+   Query: estimated cost for refacing kitchen cabinets
+
+170. Query ID: 250
+   Query: what qualifications do you need to be a compliance officer
+
+171. Query ID: 251
+   Query: installing air conditioner cost
+
+172. Query ID: 254
+   Query: what does rose quartz stone mean
+
+173. Query ID: 257
+   Query: what is a dihybrid cross
+
+174. Query ID: 259
+   Query: average salary of allergy doctor
+
+175. Query ID: 262
+   Query: is mandelate a salt
+
+176. Query ID: 264
+   Query: what are transgenic plants
+
+177. Query ID: 265
+   Query: what are parachutes
+
+178. Query ID: 266
+   Query: average cost to dry clean a sweater
+
+179. Query ID: 268
+   Query: what qualifications to be a vet nurse
+
+180. Query ID: 269
+   Query: destin florida average temperatures in winter
+
+181. Query ID: 270
+   Query: how much do the risk officers earn
+
+182. Query ID: 271
+   Query: what a excretory system
+
+183. Query ID: 272
+   Query: what was mouthwash originally used for
+
+184. Query ID: 273
+   Query: what is a MRP inventory control system
+
+185. Query ID: 274
+   Query: how much does a cleaner franchise cost in auckland
+
+186. Query ID: 275
+   Query: signs and symptoms of blocked fallopian tubes
+
+187. Query ID: 277
+   Query: how to straighten out your shoulders
+
+188. Query ID: 279
+   Query: kendi name meaning
+
+189. Query ID: 280
+   Query: what is down date endorsement
+
+190. Query ID: 283
+   Query: mauritius average temperature
+
+191. Query ID: 284
+   Query: how much does a robotic hysterectomy cost
+
+192. Query ID: 285
+   Query: what kind of sugar to brew kombucha
+
+193. Query ID: 287
+   Query: symptoms of niacin deficiency in ducks
+
+194. Query ID: 289
+   Query: closing cost for a house in florida
+
+195. Query ID: 291
+   Query: what is the most powerful poisonous bite
+
+196. Query ID: 292
+   Query: can you see on an iphone how much data you've used
+
+197. Query ID: 295
+   Query: what is spinosad made from
+
+198. Query ID: 296
+   Query: is a towable caravan allowed to park in the street
+
+199. Query ID: 297
+   Query: what are the effects of sediment transport
+
+200. Query ID: 299
+   Query: tsh level ranges for pregnancy
+
+201. Query ID: 300
+   Query: how long does irs take to say refund approved
+
+202. Query ID: 301
+   Query: what is a bsd
+
+203. Query ID: 303
+   Query: seedless vascular plants dominant generation
+
+204. Query ID: 304
+   Query: what is biga
+
+205. Query ID: 305
+   Query: is seaweed fungi
+
+206. Query ID: 306
+   Query: how much does a wall cost to build
+
+207. Query ID: 307
+   Query: how much with an app cost to make
+
+208. Query ID: 310
+   Query: what is cav
+
+209. Query ID: 313
+   Query: is an optometrist a physician
+
+210. Query ID: 314
+   Query: what is synthetic oil for
+
+211. Query ID: 315
+   Query: what is psa levels mean
+
+212. Query ID: 316
+   Query: where does copper come from
+
+213. Query ID: 317
+   Query: good cat food for ferrets
+
+214. Query ID: 318
+   Query: what is stout mean
+
+215. Query ID: 319
+   Query: how was the treaty of versailles unfair to germany
+
+216. Query ID: 320
+   Query: what type of nervous tissue is in the lungs
+
+217. Query ID: 322
+   Query: average salary of a hospital pharmacist in canada
+
+218. Query ID: 326
+   Query: off leash dog parks near tewksbury ma
+
+219. Query ID: 327
+   Query: the process by which dna reproduces itself is
+
+220. Query ID: 329
+   Query: what is triodos bank
+
+221. Query ID: 330
+   Query: what was the intent of the northwest ordinance
+
+222. Query ID: 331
+   Query: average size of a skating rink
+
+223. Query ID: 334
+   Query: what happens when a homeless felon person dies
+
+224. Query ID: 335
+   Query: daily limit for colchicine dosage
+
+225. Query ID: 336
+   Query: What is LPC in Counseling
+
+226. Query ID: 339
+   Query: what does an engineer require
+
+227. Query ID: 340
+   Query: proposition psychology definition
+
+228. Query ID: 341
+   Query: what does latino mean
+
+229. Query ID: 342
+   Query: male hen is called
+
+230. Query ID: 343
+   Query: how long does it take to become a cna
+
+231. Query ID: 347
+   Query: what is the chemical formula for vinegar
+
+232. Query ID: 348
+   Query: taking lexapro with food or without
+
+233. Query ID: 349
+   Query: how much does stump grinding cost
+
+234. Query ID: 352
+   Query: how do curly hair tarantulas mate
+
+235. Query ID: 353
+   Query: what is an airbus jet
+
+236. Query ID: 355
+   Query: what is melatonin
+
+237. Query ID: 357
+   Query: how long must you serve before applying for UKSF
+
+238. Query ID: 358
+   Query: what is a fractal structure
+
+239. Query ID: 359
+   Query: Wall insulation cost
+
+240. Query ID: 361
+   Query: does medicare pay for a mammogram every year
+
+241. Query ID: 362
+   Query: what antibiotic is taken for a bladder infection
+
+242. Query ID: 363
+   Query: what is moebius syndrome
+
+243. Query ID: 366
+   Query: how much does a ct scan cost in ohio
+
+244. Query ID: 367
+   Query: what should your resting heart rate be
+
+245. Query ID: 369
+   Query: what is similar to mineral oil?
+
+246. Query ID: 370
+   Query: vehicle graphics cost
+
+247. Query ID: 372
+   Query: what does dental hygienist do
+
+248. Query ID: 373
+   Query: what does the iris reflex do
+
+249. Query ID: 376
+   Query: at what rate does a heart beat in order to burn fat
+
+250. Query ID: 377
+   Query: what is a examples of cocci
+
+251. Query ID: 378
+   Query: how much does it cost to put up a garage
+
+252. Query ID: 383
+   Query: the meaning of name brody
+
+253. Query ID: 384
+   Query: what type of lettuce is used in greek salad
+
+254. Query ID: 386
+   Query: how long is a boxing match
+
+255. Query ID: 387
+   Query: how much does it cost to demolish a house in melbourne
+
+256. Query ID: 388
+   Query: how often should a dog get a bordetella vaccine
+
+257. Query ID: 389
+   Query: what year did us declare independence
+
+258. Query ID: 390
+   Query: is purified water healthy to drink
+
+259. Query ID: 391
+   Query: are non pathogenic bacteria harmful
+
+260. Query ID: 392
+   Query: what is cupro
+
+261. Query ID: 393
+   Query: how to remove wrinkles from upper lip
+
+262. Query ID: 394
+   Query: what is marine biologist
+
+263. Query ID: 396
+   Query: how fast does an elm tree grow
+
+264. Query ID: 402
+   Query: chiari malformation what is
+
+265. Query ID: 405
+   Query: how many acres is lake minnetonka
+
+266. Query ID: 407
+   Query: irish water what is the capped yearly charge for one person household
+
+267. Query ID: 408
+   Query: what is kalocsa
+
+268. Query ID: 409
+   Query: what is the arctic tundra
+
+269. Query ID: 411
+   Query: how wide is the potomac river
+
+270. Query ID: 412
+   Query: what is wcf
+
+271. Query ID: 415
+   Query: how does traumatic brain injury affect learning
+
+272. Query ID: 416
+   Query: how long does personal trainer certification take
+
+273. Query ID: 419
+   Query: why did the continental system fail
+
+274. Query ID: 420
+   Query: how long should a gas oven last
+
+275. Query ID: 421
+   Query: Who is the girl from the book thief
+
+276. Query ID: 423
+   Query: dependent deduction qualifications
+
+277. Query ID: 424
+   Query: what are rgp lenses
+
+278. Query ID: 425
+   Query: what is the average mean temperature of the earth
+
+279. Query ID: 427
+   Query: when was a-ha formed
+
+280. Query ID: 428
+   Query: how many miles from chicago to denver colorado
+
+281. Query ID: 430
+   Query: is a mushroom a prokaryote or eukaryote
+
+282. Query ID: 433
+   Query: what contains cornstarch
+
+283. Query ID: 436
+   Query: what does endocrine mean
+
+284. Query ID: 438
+   Query: how long does it take for concrete to dry before you can walk on it
+
+285. Query ID: 439
+   Query: what is an alias
+
+286. Query ID: 441
+   Query: are permanent residents allowed to collect pension
+
+287. Query ID: 442
+   Query: dna must be replicated prior to what event
+
+288. Query ID: 445
+   Query: price elasticity of demand gasoline
+
+289. Query ID: 446
+   Query: what is winsxs backup folder for
+
+290. Query ID: 447
+   Query: Hearing is considered to be within normal limits
+
+291. Query ID: 448
+   Query: how do hyena sounds
+
+292. Query ID: 449
+   Query: bacterial cell ribosomes function
+
+293. Query ID: 450
+   Query: autosomal genes definition
+
+294. Query ID: 451
+   Query: what is process integration in supply chain management
+
+295. Query ID: 453
+   Query: what is document security
+
+296. Query ID: 454
+   Query: why does enamel paint bubble
+
+297. Query ID: 455
+   Query: article definition constitution
+
+298. Query ID: 456
+   Query: what is sriracha pronounced
+
+299. Query ID: 457
+   Query: close up photography definition
+
+300. Query ID: 458
+   Query: what are ligands
+
+301. Query ID: 459
+   Query: initial cost of sewage treatment plant
+
+302. Query ID: 460
+   Query: average cost per square foot to build a house canada
+
+303. Query ID: 461
+   Query: cost of materials for rebuilding a deck
+
+304. Query ID: 462
+   Query: why do bacteria weaken
+
+305. Query ID: 464
+   Query: cost to replace brakes
+
+306. Query ID: 466
+   Query: what is tyrosine
+
+307. Query ID: 467
+   Query: cognitive behavioral theory definition
+
+308. Query ID: 468
+   Query: what are coronae
+
+309. Query ID: 469
+   Query: how much to replace a tub faucet
+
+310. Query ID: 470
+   Query: orbicularis oris definition
+
+311. Query ID: 471
+   Query: average meal price paris
+
+312. Query ID: 473
+   Query: what does lengana do
+
+313. Query ID: 475
+   Query: what was the first movie ever made
+
+314. Query ID: 477
+   Query: what was the dust pneumonia
+
+315. Query ID: 480
+   Query: how many calories in a turkey reuben on a pretzel bun
+
+316. Query ID: 482
+   Query: what is the grand canyon
+
+317. Query ID: 484
+   Query: what ingredients contain lactose
+
+318. Query ID: 485
+   Query: what is evoke
+
+319. Query ID: 487
+   Query: how long are boiled eggs good for in the refrigerator
+
+320. Query ID: 490
+   Query: weather in oregon in may
+
+321. Query ID: 491
+   Query: how much does a blood test cost
+
+322. Query ID: 493
+   Query: what part of the lymphatic system is found associated with ileum
+
+323. Query ID: 495
+   Query: what is hibiclens soap used for
+
+324. Query ID: 496
+   Query: what is a ghoul
+
+325. Query ID: 497
+   Query: cost per square foot to install tile
+
+326. Query ID: 498
+   Query: how do i turn on speaker on iphone
+
+327. Query ID: 499
+   Query: what is average price of wedding present
+
+328. Query ID: 500
+   Query: where is eliot me
+
+329. Query ID: 503
+   Query: what are non vascular plants
+
+330. Query ID: 504
+   Query: scribd cost price
+
+331. Query ID: 505
+   Query: what is normal reading for blood pressure
+
+332. Query ID: 506
+   Query: who is the leader of the republican party
+
+333. Query ID: 508
+   Query: how did germany invade poland
+
+334. Query ID: 509
+   Query: does metoprolol cause muscle weakness
+
+335. Query ID: 511
+   Query: what is medical terminology
+
+336. Query ID: 512
+   Query: what is the average climate in delaware
+
+337. Query ID: 513
+   Query: were internal combustion engines designed to run on ethanol
+
+338. Query ID: 514
+   Query: decimal pronunciation
+
+339. Query ID: 515
+   Query: what is a doyenne
+
+340. Query ID: 517
+   Query: what year was university of oregon founded
+
+341. Query ID: 518
+   Query: what is myeloma disease
+
+342. Query ID: 519
+   Query: what is ebv test
+
+343. Query ID: 520
+   Query: what are the scientific concepts in primary school
+
+344. Query ID: 522
+   Query: what is karnak
+
+345. Query ID: 523
+   Query: what makes a good primer for amplification
+
+346. Query ID: 527
+   Query: what does prunes do?
+
+347. Query ID: 528
+   Query: what is the delivery time for priority mail express
+
+348. Query ID: 529
+   Query: what are the different types of nicotine
+
+349. Query ID: 530
+   Query: how long until i can get a refund from paypal
+
+350. Query ID: 532
+   Query: average income in fairfax, va
+
+351. Query ID: 533
+   Query: is talcum powder safe
+
+352. Query ID: 537
+   Query: where is gallbladder situated in human body
+
+353. Query ID: 538
+   Query: In what form does calcium exist
+
+354. Query ID: 540
+   Query: what is the highest credit score rating you can have
+
+355. Query ID: 541
+   Query: describe the antebellum reform movement period
+
+356. Query ID: 543
+   Query: how much LVN make in houston texas
+
+357. Query ID: 545
+   Query: what does the intervertebral disc do
+
+358. Query ID: 547
+   Query: what is inflammatory pain
+
+359. Query ID: 549
+   Query: final fantasy vii how to escape the gas chamber
+
+360. Query ID: 550
+   Query: what type of organic compound is aspirin
+
+361. Query ID: 551
+   Query: actual cost of cremation
+
+362. Query ID: 552
+   Query: how to open file using command prompt
+
+363. Query ID: 553
+   Query: what is fast vaporization called
+
+364. Query ID: 556
+   Query: what caused the cambrian extinction
+
+365. Query ID: 558
+   Query: when was hpv first discovered
+
+366. Query ID: 559
+   Query: what type of infection is meningitis
+
+367. Query ID: 560
+   Query: nitrofurantoin dosage for uti
+
+368. Query ID: 562
+   Query: what is a lac?
+
+369. Query ID: 564
+   Query: why is drinking too much alcohol bad for you
+
+370. Query ID: 565
+   Query: hip conditions that cause back pain
+
+371. Query ID: 568
+   Query: what is hygroma
+
+372. Query ID: 570
+   Query: marine reserves examples
+
+373. Query ID: 571
+   Query: what causes pompe's disease
+
+374. Query ID: 572
+   Query: what causes chalazion
+
+375. Query ID: 573
+   Query: peripheral nerve definition
+
+376. Query ID: 574
+   Query: what does quinine do
+
+377. Query ID: 575
+   Query: cost annually to raise a child
+
+378. Query ID: 576
+   Query: what colour is buff
+
+379. Query ID: 578
+   Query: how long to cook a 2 pound meatloaf
+
+380. Query ID: 579
+   Query: what is the average temperature and average rainfall in the coniferous forest
+
+381. Query ID: 580
+   Query: why is diaphragm a barrier
+
+382. Query ID: 581
+   Query: workers compensation insurance cost
+
+383. Query ID: 582
+   Query: can i apply for multiple jobs
+
+384. Query ID: 583
+   Query: how to order my avon
+
+385. Query ID: 584
+   Query: when was daylight savings started
+
+386. Query ID: 585
+   Query: what is the iq range for mensa
+
+387. Query ID: 586
+   Query: what is the biggest volcano in the world
+
+388. Query ID: 589
+   Query: what describes river erosion the best in great details
+
+389. Query ID: 591
+   Query: how to maintain an aloe plant
+
+390. Query ID: 593
+   Query: can dna fingerprinting be dangerous
+
+391. Query ID: 594
+   Query: what is anaerobic respiration also called
+
+392. Query ID: 597
+   Query: great barrier reef average temperatures
+
+393. Query ID: 600
+   Query: who should marijuana be legalized
+
+394. Query ID: 601
+   Query: how far is salt lake city to yellowstone
+
+395. Query ID: 604
+   Query: what distance in feet is a chain
+
+396. Query ID: 605
+   Query: different types of brain diseases
+
+397. Query ID: 607
+   Query: parking requirements for handicap spaces
+
+398. Query ID: 608
+   Query: what region did the pilgrims settle in
+
+399. Query ID: 609
+   Query: never even called me by name chords
+
+400. Query ID: 610
+   Query: define enigmatic
+
+401. Query ID: 611
+   Query: where are pekingese dogs from
+
+402. Query ID: 612
+   Query: what is a gsm phone
+
+403. Query ID: 613
+   Query: where is atp synthesized in photosynthesis
+
+404. Query ID: 614
+   Query: how to get neural sensors in warframe
+
+405. Query ID: 615
+   Query: mechanical errors definition
+
+406. Query ID: 616
+   Query: how long do you cook roast in the oven
+
+407. Query ID: 617
+   Query: what is couchsurfing
+
+408. Query ID: 618
+   Query: causes of contracted gallbladder
+
+409. Query ID: 619
+   Query: what types of transport are utilized during glucose reabsorption and where do they occur
+
+410. Query ID: 620
+   Query: roast pork beef veal and lamb need to be cooked to a minimum temperature of
+
+411. Query ID: 621
+   Query: what does the name michael mean
+
+412. Query ID: 622
+   Query: plenum hvac definition
+
+413. Query ID: 623
+   Query: what kind of account is deferred revenue
+
+414. Query ID: 624
+   Query: how much kwh does a air conditioner use
+
+415. Query ID: 625
+   Query: what is a web spider
+
+416. Query ID: 626
+   Query: what is polyhedra
+
+417. Query ID: 629
+   Query: autonomic nerve function test
+
+418. Query ID: 634
+   Query: how long to roast turkey
+
+419. Query ID: 635
+   Query: anatomy where is your liver
+
+420. Query ID: 636
+   Query: how long does it take for plants to sprout
+
+421. Query ID: 637
+   Query: what is a coggins
+
+422. Query ID: 638
+   Query: what was the bent pyramid built for
+
+423. Query ID: 639
+   Query: why does tybalt call romeo a villain
+
+424. Query ID: 640
+   Query: list out the main difference between production and operation management
+
+425. Query ID: 643
+   Query: how much do the average paramedics make in the usa
+
+426. Query ID: 647
+   Query: why does grapefruit help with weight loss
+
+427. Query ID: 648
+   Query: how long off work after knee arthroscopy

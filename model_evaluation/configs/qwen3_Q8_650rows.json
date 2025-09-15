@@ -1,0 +1,15 @@
+{
+  "database_path": "./databases/ms_marco_qwen3_Q8_650rows.sqlite",
+  "rag_settings": {
+    "chunk_size": 1000,
+    "chunk_overlap": 0,
+    "model_path_or_name": "./../models/Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf",
+    "model_options": "",
+    "model_context_options": "generate_embedding=1,normalize_embedding=1,pooling_type=last,embedding_type=INT8",
+    "vector_type": "INT8",
+    "embedding_dim": 1024,
+    "other_vector_options": "distance=cosine",
+    "weight_fts": 0.0,
+    "weight_vec": 1.0
+  }
+}

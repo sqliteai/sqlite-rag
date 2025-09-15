@@ -5,8 +5,31 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import psutil
 
 from sqlite_rag import SQLiteRag
+
+
+class MemoryMonitor:
+    def __init__(self):
+        self.process = psutil.Process()
+        self.memory_usage = []
+
+    def record(self):
+        """Record current memory usage"""
+        mem_info = self.process.memory_info()
+        self.memory_usage.append(mem_info.rss / 1024 / 1024)  # Convert to MB
+
+    def get_stats(self):
+        """Get memory statistics"""
+        if not self.memory_usage:
+            return {"avg": 0, "max": 0, "min": 0}
+
+        return {
+            "avg": sum(self.memory_usage) / len(self.memory_usage),
+            "max": max(self.memory_usage),
+            "min": min(self.memory_usage),
+        }
 
 
 def calculate_dcg(relevance_scores):
@@ -37,6 +60,7 @@ def test_ms_marco_processing(
     """Test processing MS MARCO dataset with SQLiteRag"""
 
     start_time = time.time()
+    memory_monitor = MemoryMonitor()
 
     if rag_settings is None:
         rag_settings = {"chunk_size": 1000, "chunk_overlap": 0}
@@ -70,6 +94,7 @@ def test_ms_marco_processing(
     print("Initializing SQLiteRag...")
     init_start = time.time()
     rag = SQLiteRag.create(database_path, settings=rag_settings)
+    memory_monitor.record()  # After RAG initialization
     init_time = time.time() - init_start
     print(f"SQLiteRag initialized in {init_time:.2f}s")
 
@@ -107,12 +132,18 @@ def test_ms_marco_processing(
             uri = f"ms_marco_query_{query_id}_passage_{i}"
 
             # Add passage to the database
-            rag.add_text(text=passage_text, uri=uri, metadata=metadata)
+            try:
+                rag.add_text(text=passage_text, uri=uri, metadata=metadata)
 
-            total_passages_added += 1
+                total_passages_added += 1
+            except Exception as e:
+                print(
+                    f"Error adding passage for query_id {query_id}, passage_index {i}: {e}"
+                )
 
         # Progress update every 100 samples
         if idx % 100 == 0:
+            memory_monitor.record()  # Record memory during processing
             elapsed = time.time() - processing_start
             rate = idx / elapsed if elapsed > 0 else 0
             eta = (total_samples - idx) / rate if rate > 0 else 0
@@ -158,6 +189,9 @@ def test_ms_marco_processing(
     print(f"  weight_fts: {settings_info.get('weight_fts', 1.0)}")
     print(f"  weight_vec: {settings_info.get('weight_vec', 1.0)}")
 
+    memory_monitor.record()  # Final memory reading
+    memory_stats = memory_monitor.get_stats()
+
     total_time = time.time() - start_time
     print(f"\n{'='*60}")
     print("TIMING SUMMARY:")
@@ -166,6 +200,11 @@ def test_ms_marco_processing(
     print(f"  Processing:      {processing_time:.2f}s")
     print(f"  Total time:      {total_time:.2f}s")
     print(f"  Average rate:    {total_passages_added/processing_time:.1f} passages/s")
+    print(f"{'='*60}")
+    print("MEMORY USAGE SUMMARY:")
+    print(f"  Average memory:  {memory_stats['avg']:.1f} MB")
+    print(f"  Maximum memory:  {memory_stats['max']:.1f} MB")
+    print(f"  Minimum memory:  {memory_stats['min']:.1f} MB")
     print(f"{'='*60}")
 
     rag.close()
@@ -176,6 +215,9 @@ def evaluate_search_quality(
     limit_rows=None, database_path="ms_marco_test.sqlite", output_file=None
 ):
     """Evaluate search quality using proper metrics"""
+
+    # Setup memory monitoring
+    memory_monitor = MemoryMonitor()
 
     # Setup output capture
     output_lines = []
@@ -202,6 +244,7 @@ def evaluate_search_quality(
 
     # Create RAG instance
     rag = SQLiteRag.create(database_path)
+    memory_monitor.record()  # After RAG initialization
 
     # Metrics for different top-k values
     k_values = [1, 3, 5, 10]
@@ -290,11 +333,16 @@ def evaluate_search_quality(
 
         # Progress update
         if (idx + 1) % 50 == 0:
+            memory_monitor.record()  # Record memory during evaluation
             print(
                 f"Processed {idx + 1}/{len(df)} queries..."
             )  # Only to console, not to file
 
     rag.close()
+
+    # Final memory reading and calculate stats
+    memory_monitor.record()
+    memory_stats = memory_monitor.get_stats()
 
     # Calculate and display final metrics
     output(f"\n{'='*60}")
@@ -345,6 +393,11 @@ def evaluate_search_quality(
         f"{'NDCG':<20} {ndcg_values[0]:<10} {ndcg_values[1]:<10} {ndcg_values[2]:<10} {ndcg_values[3]:<10}"
     )
 
+    output(f"\n{'='*60}")
+    output("MEMORY USAGE SUMMARY:")
+    output(f"  Average memory:  {memory_stats['avg']:.1f} MB")
+    output(f"  Maximum memory:  {memory_stats['max']:.1f} MB")
+    output(f"  Minimum memory:  {memory_stats['min']:.1f} MB")
     output(f"\n{'='*60}")
     output("INTERPRETATION:")
     output("- Hit Rate: % of queries where at least 1 relevant result appears in top-k")
@@ -403,7 +456,7 @@ def load_config(config_path):
 def create_example_config():
     """Create an example configuration file"""
     example_config = {
-        "database_path": "ms_marco_test.sqlite",
+        "database_path": "./configs/ms_marco_test.sqlite",
         "rag_settings": {
             "chunk_size": 1000,
             "chunk_overlap": 0,
@@ -418,7 +471,7 @@ def create_example_config():
         },
     }
 
-    config_file = Path("ms_marco_config.json")
+    config_file = Path("./configs/ms_marco_config.json")
     with open(config_file, "w") as f:
         json.dump(example_config, f, indent=2)
 
@@ -451,14 +504,14 @@ def main():
 
     args = parser.parse_args()
 
-    # Load configuration
-    try:
-        config = load_config(args.config)
-    except FileNotFoundError:
-        print(f"Config file {args.config} not found. Creating example config...")
+    if args.config is None:
+        print("Missing config file. Creating example config...")
         create_example_config()
         print("Please edit ms_marco_config.json with your settings and try again.")
         return
+
+    try:
+        config = load_config(args.config)
     except Exception as e:
         print(f"Error loading config: {e}")
         return
