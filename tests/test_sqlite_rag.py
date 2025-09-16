@@ -89,14 +89,14 @@ class TestSQLiteRag:
             chunk_count = cursor.fetchone()[0]
             assert chunk_count > 0
 
-    def test_add_with_absolute_paths_option_true(self):
+    def test_add_with_absolute_paths(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("This is a test document with absolute path option.")
             temp_file_path = f.name
 
         rag = SQLiteRag.create(":memory:")
 
-        rag.add(temp_file_path, use_absolute_paths=True)
+        rag.add(temp_file_path, use_relative_paths=False)
 
         conn = rag._conn
         cursor = conn.execute("SELECT uri FROM documents")
@@ -104,14 +104,14 @@ class TestSQLiteRag:
         assert doc
         assert doc[0] == str(Path(temp_file_path).absolute())
 
-    def test_add_with_absolute_paths_option_false(self):
+    def test_add_with_relative_paths(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("This is a test document with relative path option.")
             temp_file_path = Path(f.name)
 
         rag = SQLiteRag.create(":memory:")
 
-        rag.add(str(temp_file_path), use_absolute_paths=False)
+        rag.add(str(temp_file_path), use_relative_paths=True)
 
         conn = rag._conn
         cursor = conn.execute("SELECT uri FROM documents")

@@ -14,6 +14,8 @@ from sqlite_rag.settings import SettingsManager
 from .formatters import get_formatter
 from .sqliterag import SQLiteRag
 
+DEFAULT_DATABASE_PATH = "./sqliterag.sqlite"
+
 
 class RAGContext:
     """Manage CLI state and RAG object reuse"""
@@ -21,28 +23,29 @@ class RAGContext:
     def __init__(self):
         self.rag: Optional[SQLiteRag] = None
         self.in_repl = False
-        self.database: str = ""
+        self.database_path: str = ""
 
     def enter_repl(self):
         """Enter REPL mode"""
         self.in_repl = True
 
-    def get_rag(self, database_path: str, require_existing: bool = False) -> SQLiteRag:
+    def get_rag(self, require_existing: bool = False) -> SQLiteRag:
         """Create or reuse SQLiteRag instance"""
-        if not self.database:
+        if not self.database_path:
             raise ValueError("Database path not set. Use --database option.")
 
         if self.in_repl:
             if self.rag is None:
-                typer.echo(f"Debug: Using database path: {self.database}")
                 self.rag = SQLiteRag.create(
-                    self.database, require_existing=require_existing
+                    self.database_path, require_existing=require_existing
                 )
-                typer.echo(f"Database: {Path(self.database).resolve()}")
             return self.rag
         else:
             # Regular mode - create new instance
-            return SQLiteRag.create(database_path, require_existing=require_existing)
+            typer.echo(f"Database: {Path(self.database_path).resolve()}")
+            return SQLiteRag.create(
+                self.database_path, require_existing=require_existing
+            )
 
 
 rag_context = RAGContext()
@@ -66,7 +69,7 @@ cli = CLI(app)
 def main(
     ctx: typer.Context,
     database: str = typer.Option(
-        "./sqliterag.sqlite",
+        DEFAULT_DATABASE_PATH,
         "--database",
         "-db",
         help="Path to the SQLite database file",
@@ -74,12 +77,16 @@ def main(
 ):
     """SQLite RAG - Retrieval Augmented Generation with SQLite"""
     ctx.ensure_object(dict)
-    rag_context.database = database
     ctx.obj["rag_context"] = rag_context
 
+    if not rag_context.in_repl:
+        rag_context.database_path = database
+
     # If no subcommand was invoked, enter REPL mode
-    if ctx.invoked_subcommand is None:
+    if ctx.invoked_subcommand is None and not rag_context.in_repl:
         rag_context.enter_repl()
+        typer.echo(f"Database: {Path(database).resolve()}")
+
         repl_mode()
 
 
@@ -87,7 +94,7 @@ def main(
 def show_settings(ctx: typer.Context):
     """Show current settings"""
     rag_context = ctx.obj["rag_context"]
-    rag = rag_context.get_rag(rag_context.database, require_existing=True)
+    rag = rag_context.get_rag(require_existing=True)
     current_settings = rag.get_settings()
 
     typer.echo("Current settings:")
@@ -168,7 +175,7 @@ def configure_settings(
         show_settings(ctx)
         return
 
-    conn = Database.new_connection(rag_context.database)
+    conn = Database.new_connection(rag_context.database_path)
     settings_manager = SettingsManager(conn)
     settings_manager.configure(updates)
 
@@ -199,7 +206,7 @@ def add(
     rag_context = ctx.obj["rag_context"]
     start_time = time.time()
 
-    rag = rag_context.get_rag(rag_context.database)
+    rag = rag_context.get_rag()
     rag.add(
         path,
         recursive=recursive,
@@ -225,7 +232,7 @@ def add_text(
 ):
     """Add a text to the database"""
     rag_context = ctx.obj["rag_context"]
-    rag = rag_context.get_rag(rag_context.database)
+    rag = rag_context.get_rag()
     rag.add_text(text, uri=uri, metadata=json.loads(metadata or "{}"))
     typer.echo("Text added.")
 
@@ -234,7 +241,7 @@ def add_text(
 def list_documents(ctx: typer.Context):
     """List all documents in the database"""
     rag_context = ctx.obj["rag_context"]
-    rag = rag_context.get_rag(rag_context.database, require_existing=True)
+    rag = rag_context.get_rag(require_existing=True)
     documents = rag.list_documents()
 
     if not documents:
@@ -266,7 +273,7 @@ def remove(
 ):
     """Remove document by path or UUID"""
     rag_context = ctx.obj["rag_context"]
-    rag = rag_context.get_rag(rag_context.database, require_existing=True)
+    rag = rag_context.get_rag(require_existing=True)
 
     # Find the document first
     document = rag.find_document(identifier)
@@ -311,7 +318,7 @@ def rebuild(
 ):
     """Rebuild embeddings and full-text index"""
     rag_context = ctx.obj["rag_context"]
-    rag = rag_context.get_rag(rag_context.database, require_existing=True)
+    rag = rag_context.get_rag(require_existing=True)
 
     typer.echo("Rebuild process...")
 
@@ -331,7 +338,7 @@ def reset(
 ):
     """Reset/clear the entire database"""
     rag_context = ctx.obj["rag_context"]
-    rag = rag_context.get_rag(rag_context.database, require_existing=True)
+    rag = rag_context.get_rag(require_existing=True)
 
     # Show warning and ask for confirmation unless -y flag is used
     if not yes:
@@ -374,7 +381,7 @@ def search(
     rag_context = ctx.obj["rag_context"]
     start_time = time.time()
 
-    rag = rag_context.get_rag(rag_context.database, require_existing=True)
+    rag = rag_context.get_rag(require_existing=True)
     results = rag.search(query, top_k=limit)
 
     search_time = time.time() - start_time
@@ -397,7 +404,7 @@ def quantize(
 ):
     """Quantize vectors for faster search or clean up quantization structures"""
     rag_context = ctx.obj["rag_context"]
-    rag = rag_context.get_rag(rag_context.database, require_existing=True)
+    rag = rag_context.get_rag(require_existing=True)
 
     if cleanup:
         typer.echo("Cleaning up quantization structures...")

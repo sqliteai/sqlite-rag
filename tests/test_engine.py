@@ -91,7 +91,7 @@ class TestEngine:
         engine.quantize()
 
         # Act
-        results = engine.search("lumberjack", limit=5)
+        results = engine.search("about lumberjack", limit=5)
 
         assert len(results) > 0
         assert doc3_id == results[0].document.id
