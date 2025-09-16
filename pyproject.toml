@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "toml"]
+requires = ["setuptools>=61.0", "build", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "sqlite-rag"
-version = "0.0.0"
+dynamic = ["version"]
 description = "Hybird search with SQLite AI and SQLite Vector"
 authors = [{name = "SQLite AI Team"}]
 requires-python = ">=3.10"
@@ -13,6 +13,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -26,7 +27,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "toml",
     "pytest",
     "pytest-cov",
     "black",
@@ -36,7 +36,9 @@ dev = [
     "pre-commit",
     "pyarrow",
     "pandas",
-    "psutil"
+    "psutil",
+    "twine",
+    "build"
 ]
 
 [project.urls]
@@ -50,6 +52,9 @@ sqlite-rag = "sqlite_rag.cli:cli"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["sqlite_rag*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "sqlite_rag._version.__version__"}
 
 [tool.isort]
 # make the tools compatible to each other

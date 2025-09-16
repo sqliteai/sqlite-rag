@@ -15,13 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write # mandatory for Pypi trusted publishing
+      contents: read
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -43,10 +42,10 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
         run: |
-          # Update version in pyproject.toml
-          sed -i 's/^version = ".*"/version = "${{ steps.get_version.outputs.version }}"/' pyproject.toml
-          python setup.py bdist_wheel
+          python -m build --wheel
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
