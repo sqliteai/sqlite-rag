@@ -143,6 +143,9 @@ def configure_settings(
     weight_vec: Optional[float] = typer.Option(
         None, help="Weight for vector search results"
     ),
+    use_gpu: Optional[bool] = typer.Option(
+        None, help="Whether to allow sqlite-ai extension to use the GPU"
+    ),
 ):
     """Configure settings for the RAG system.
 
@@ -165,6 +168,7 @@ def configure_settings(
         "quantize_preload": quantize_preload,
         "weight_fts": weight_fts,
         "weight_vec": weight_vec,
+        "use_gpu": use_gpu,
     }
 
     # Filter out None values (unset options)

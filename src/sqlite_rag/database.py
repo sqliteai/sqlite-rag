@@ -21,7 +21,12 @@ class Database:
         conn.enable_load_extension(True)
         try:
             conn.load_extension(
-                str(importlib.resources.files("sqliteai.binaries.cpu") / "ai")
+                str(
+                    importlib.resources.files(
+                        "sqliteai.binaries." + ("gpu" if settings.use_gpu else "cpu")
+                    )
+                    / "ai"
+                )
             )
             conn.load_extension(
                 str(importlib.resources.files("sqlite-vector.binaries") / "vector")

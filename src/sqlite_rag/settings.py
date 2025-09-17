@@ -44,6 +44,10 @@ class Settings:
     weight_fts: float = 1.0
     weight_vec: float = 1.0
 
+    # Allow the sqlite-ai extension to use the GPU
+    # See: https://github.com/sqliteai/sqlite-ai
+    use_gpu = False
+
 
 class SettingsManager:
     def __init__(self, connection: sqlite3.Connection):
