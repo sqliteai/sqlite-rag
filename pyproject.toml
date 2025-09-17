@@ -26,6 +26,7 @@ dependencies = [
     "markitdown[pptx]",
     "markitdown[xls]",
     "markitdown[xlsx]",
+    "prompt-toolkit",
     "sqlite-ai",
     "sqlite-vector"
 ]

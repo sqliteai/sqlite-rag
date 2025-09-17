@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from prompt_toolkit import prompt
+from prompt_toolkit.history import InMemoryHistory
 
 from sqlite_rag.database import Database
 from sqlite_rag.settings import SettingsManager
@@ -477,17 +479,23 @@ def download_model(
 
 
 def repl_mode():
-    """Interactive REPL mode"""
+    """Interactive REPL mode with arrow key support"""
     typer.echo("Entering interactive mode. Type 'help' for commands or 'exit' to quit.")
     typer.echo(
         "Note: --database and configure commands are not available in REPL mode."
     )
 
     disabled_features = ["configure", "--database", "-db"]
+    history = InMemoryHistory()
 
     while True:
         try:
-            command = input("\nsqlite-rag> ").strip()
+            command = prompt(
+                "sqlite-rag> ",
+                history=history,
+                enable_history_search=True,
+            ).strip()
+
             if not command:
                 continue
 
