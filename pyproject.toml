@@ -20,9 +20,14 @@ dependencies = [
     "attrs",
     "typer",
     "huggingface_hub[hf_transfer]",
-    "markitdown[all]",
+    "markitdown[docx]",
+    "markitdown[outlook]",
+    "markitdown[pdf]",
+    "markitdown[pptx]",
+    "markitdown[xls]",
+    "markitdown[xlsx]",
     "sqlite-ai",
-    "sqliteai-vector"
+    "sqlite-vector"
 ]
 
 [project.optional-dependencies]
@@ -38,7 +43,7 @@ dev = [
     "pandas",
     "psutil",
     "twine",
-    "build"
+    "build",
 ]
 
 [project.urls]
