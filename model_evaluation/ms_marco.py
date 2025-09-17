@@ -486,8 +486,8 @@ def main():
     )
     parser.add_argument(
         "action",
-        choices=["process", "evaluate"],
-        help="Action to perform: 'process' to add passages to database, 'evaluate' to test search quality",
+        choices=["process", "evaluate", "create-config"],
+        help="Action to perform: 'process' to add passages to database, 'evaluate' to test search quality, 'create-config' to generate example configuration",
     )
     parser.add_argument(
         "--limit-rows",
@@ -498,16 +498,23 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        required=True,
+        required=False,
         help="JSON configuration file with RAG settings and database path",
     )
 
     args = parser.parse_args()
 
+    if args.action == "create-config":
+        print("Creating example configuration file...")
+        config_file = create_example_config()
+        print(f"Configuration file created: {config_file}")
+        print("Edit the file with your settings and then run process/evaluate.")
+        return
+
+    # Config is required for process and evaluate actions
     if args.config is None:
-        print("Missing config file. Creating example config...")
-        create_example_config()
-        print("Please edit ms_marco_config.json with your settings and try again.")
+        print("Error: --config is required for process and evaluate actions")
+        print("Use 'create-config' action to generate an example configuration file")
         return
 
     try:
