@@ -580,3 +580,24 @@ class TestSQLiteRag:
             # Second result should have distance > 0
             second_result = results[1]
             assert second_result.vec_distance and second_result.vec_distance > 0.0
+
+    def test_search_uses_retrieval_query_template(self, mocker):
+        template = "task: search | Do something with {content}"
+
+        settings = {"prompt_template_retrieval_query": template}
+
+        rag = SQLiteRag.create(":memory:", settings=settings)
+
+        mock_engine = mocker.Mock()
+        mock_engine.search.return_value = []
+
+        rag._engine = mock_engine
+
+        query = "test query"
+        rag.search(query)
+
+        # Assert that engine.search was called with the formatted template
+        expected_query = rag._settings.prompt_template_retrieval_query.format(
+            content=query
+        )
+        mock_engine.search.assert_called_once_with(expected_query, top_k=10)

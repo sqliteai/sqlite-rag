@@ -3,7 +3,7 @@
   "rag_settings": {
     "chunk_size": 1000,
     "chunk_overlap": 0,
-    "model_path_or_name": "./../models/unsloth/embeddinggemma-300m-GGUF/embeddinggemma-300M-Q8_0.gguf",
+    "model_path": "./../models/unsloth/embeddinggemma-300m-GGUF/embeddinggemma-300M-Q8_0.gguf",
     "model_options": "",
     "model_context_options": "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=INT8",
     "vector_type": "INT8",

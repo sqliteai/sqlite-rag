@@ -212,7 +212,10 @@ def test_ms_marco_processing(
 
 
 def evaluate_search_quality(
-    limit_rows=None, database_path="ms_marco_test.sqlite", output_file=None
+    limit_rows=None,
+    database_path="ms_marco_test.sqlite",
+    output_file=None,
+    rag_settings=None,
 ):
     """Evaluate search quality using proper metrics"""
 
@@ -243,7 +246,7 @@ def evaluate_search_quality(
         output(f"Evaluating on {len(df)} queries")
 
     # Create RAG instance
-    rag = SQLiteRag.create(database_path)
+    rag = SQLiteRag.create(database_path, settings=rag_settings)
     memory_monitor.record()  # After RAG initialization
 
     # Metrics for different top-k values
@@ -275,6 +278,8 @@ def evaluate_search_quality(
         total_queries += 1
 
         # Perform search
+        # EmbeddingGemma works better with task specific prefix
+        # query_text = f"task: search result | query: {query_text}"
         search_results = rag.search(query_text, top_k=10)
 
         # Check results for each k value
@@ -562,6 +567,7 @@ def main():
             limit_rows=args.limit_rows,
             database_path=database_path,
             output_file=output_file,
+            rag_settings=rag_settings,
         )
 
 

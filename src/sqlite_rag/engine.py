@@ -25,7 +25,7 @@ class Engine:
     def load_model(self):
         """Load the model model from the specified path."""
 
-        model_path = Path(self._settings.model_path)
+        model_path = Path(self._settings.model_path).resolve()
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found at {model_path}")
 

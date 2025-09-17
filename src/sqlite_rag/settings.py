@@ -21,6 +21,10 @@ class Settings:
         "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=INT8"
     )
 
+    # Allow the sqlite-ai extension to use the GPU
+    # See: https://github.com/sqliteai/sqlite-ai
+    use_gpu = False
+
     vector_type: str = "INT8"
     embedding_dim: int = 768
     other_vector_options: str = (
@@ -44,9 +48,14 @@ class Settings:
     weight_fts: float = 1.0
     weight_vec: float = 1.0
 
-    # Allow the sqlite-ai extension to use the GPU
-    # See: https://github.com/sqliteai/sqlite-ai
-    use_gpu = False
+    #
+    # Prompt templates
+    # Some models are trained to work better with specific prompts
+    # depending on the task. For example, Gemma models work better
+    # when the prompt includes a task description.
+    #
+
+    prompt_template_retrieval_query: str = "task: search result | query: {content}"
 
 
 class SettingsManager:
@@ -92,7 +101,7 @@ class SettingsManager:
                         )
                     else:
                         raise ValueError(
-                            "Critical settings changes detected. Please reset the database."
+                            "Critical settings changes detected. Please force the settings update or reset the database."
                         )
                 # Update new settings
                 current_settings = self.store(new_settings)

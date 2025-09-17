@@ -148,6 +148,10 @@ def configure_settings(
     use_gpu: Optional[bool] = typer.Option(
         None, help="Whether to allow sqlite-ai extension to use the GPU"
     ),
+    prompt_template_retrieval_query: Optional[str] = typer.Option(
+        None,
+        help="Template for retrieval query prompts, use {content} as placeholder",
+    ),
 ):
     """Configure settings for the RAG system.
 
@@ -171,6 +175,7 @@ def configure_settings(
         "weight_fts": weight_fts,
         "weight_vec": weight_vec,
         "use_gpu": use_gpu,
+        "prompt_template_retrieval_query": prompt_template_retrieval_query,
     }
 
     # Filter out None values (unset options)
@@ -404,6 +409,11 @@ def search(
 @app.command()
 def quantize(
     ctx: typer.Context,
+    preload: bool = typer.Option(
+        False,
+        "--preload",
+        help="Preload quantized vectors into memory for faster search",
+    ),
     cleanup: bool = typer.Option(
         False,
         "--cleanup",
@@ -420,9 +430,14 @@ def quantize(
         typer.echo("Quantization cleanup completed.")
     else:
         typer.echo("Starting vector quantization...")
+
         rag.quantize_vectors()
+        if preload:
+            typer.echo("Preloading quantized vectors into memory...")
+            rag.quantize_preload()
+
         typer.echo(
-            "Vector quantization completed. Now you can search with `--quantize-scan` and `--quantize-preload` enabled."
+            "Vector quantization completed. Now you can search with `--quantize-scan` enabled."
         )
 
 
