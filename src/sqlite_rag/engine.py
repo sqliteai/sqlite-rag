@@ -23,21 +23,11 @@ class Engine:
         self._logger = Logger()
 
     def load_model(self):
-        """Load the model model from the specified path
-        or download it from Hugging Face if not found."""
+        """Load the model model from the specified path."""
 
         model_path = Path(self._settings.model_path)
         if not model_path.exists():
             raise FileNotFoundError(f"Model file not found at {model_path}")
-
-        # model_path = self.settings.model_path
-        # if not Path(self.settings.model_path).exists():
-        #     # check if exists locally or try to download it from Hugging Face
-        #     model_path = hf_hub_download(
-        #         repo_id=self.settings.model_path,
-        #         filename="model-q4_0.gguf",  # GGUF format
-        #         cache_dir="./models"
-        #     )
 
         self._conn.execute(
             "SELECT llm_model_load(?, ?);",
@@ -105,12 +95,12 @@ class Engine:
         )
 
     def free_context(self) -> None:
-        """"""
+        """Release resources associated with the current context."""
         cursor = self._conn.cursor()
 
         cursor.execute("SELECT llm_context_free();")
 
-    def search(self, query: str, limit: int = 10) -> list[DocumentResult]:
+    def search(self, query: str, top_k: int = 10) -> list[DocumentResult]:
         """Semantic search and full-text search sorted with Reciprocal Rank Fusion."""
         query_embedding = self.generate_embedding([Chunk(content=query)])[0].embedding
 
@@ -185,7 +175,7 @@ class Engine:
             {
                 "query": query,
                 "query_embedding": query_embedding,
-                "k": limit,
+                "k": top_k,
                 "rrf_k": Engine.DEFAULT_RRF_K,
                 "weight_fts": self._settings.weight_fts,
                 "weight_vec": self._settings.weight_vec,

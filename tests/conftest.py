@@ -25,7 +25,7 @@ def db_conn():
 
 
 @pytest.fixture
-def engine(db_conn):
+def engine(db_conn) -> Engine:
     conn, settings = db_conn
 
     engine = Engine(conn, settings, chunker=Chunker(conn, settings))

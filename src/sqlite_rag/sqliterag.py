@@ -253,7 +253,14 @@ class SQLiteRag:
     def search(
         self, query: str, top_k: int = 10, new_context: bool = True
     ) -> list[DocumentResult]:
-        """Search for documents matching the query"""
+        """Search for documents matching the query.
+
+        Args:
+            query: The search query string
+            top_k: Number of top results to search in both semantic and FTS search.
+                Number of documents may be higher.
+            new_context: Whether to create a new LLM context for this search
+        """
         self._ensure_initialized()
         if new_context:
             self._engine.create_new_context()
@@ -261,7 +268,7 @@ class SQLiteRag:
         if self._settings.quantize_scan and self._settings.quantize_preload:
             self._engine.quantize_preload()
 
-        return self._engine.search(query, limit=top_k)
+        return self._engine.search(query, top_k=top_k)
 
     def get_settings(self) -> dict:
         """Get settings and more useful information"""

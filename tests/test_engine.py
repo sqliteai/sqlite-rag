@@ -16,7 +16,7 @@ class TestEngine:
         assert isinstance(result_chunks[0].embedding, bytes)
 
     def test_search_with_empty_database(self, engine):
-        results = engine.search("nonexistent query", limit=5)
+        results = engine.search("nonexistent query", top_k=5)
 
         assert len(results) == 0
 
@@ -53,7 +53,7 @@ class TestEngine:
         engine.quantize()
 
         # Act
-        results = engine.search("wood lumberjack", limit=5)
+        results = engine.search("wood lumberjack", top_k=5)
 
         assert len(results) > 0
         assert doc3_id == results[0].document.id
@@ -91,7 +91,7 @@ class TestEngine:
         engine.quantize()
 
         # Act
-        results = engine.search("about lumberjack", limit=5)
+        results = engine.search("about lumberjack", top_k=5)
 
         assert len(results) > 0
         assert doc3_id == results[0].document.id
@@ -129,7 +129,7 @@ class TestEngine:
         engine.quantize()
 
         # Act
-        results = engine.search("quick brown fox", limit=5)
+        results = engine.search("quick brown fox", top_k=5)
 
         assert len(results) > 0
         assert doc1_id == results[0].document.id

@@ -50,7 +50,12 @@ jobs:
     - name: Test
       # Using default directory for models
       run: |
-        pytest -v -m "not slow" ./tests
+        pytest --cov --cov-branch --cov-report=xml -v -m "not slow" ./tests
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   code-style:
     runs-on: ubuntu-latest

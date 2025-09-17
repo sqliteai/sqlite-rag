@@ -386,6 +386,8 @@ def search(
 
     search_time = time.time() - start_time
 
+    results = results[:limit]
+
     # Get the appropriate formatter and display results
     formatter = get_formatter(debug=debug, table_view=peek)
     formatter.format_results(results, query)
