@@ -1,4 +1,4 @@
-<img src="https://github.com/user-attachments/assets/0d406c41-ff61-41d7-a8de-249e9e652946" alt="https://sqlite.ai" width="110"/>
+[<img src="https://github.com/user-attachments/assets/0d406c41-ff61-41d7-a8de-249e9e652946" alt="https://sqlite.ai" width="110"/>](https://sqlite.ai)
 
 # SQLite RAG
 
