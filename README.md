@@ -21,6 +21,8 @@ A hybrid search engine built on SQLite with [SQLite AI](https://github.com/sqlit
 ## Installation
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install sqlite-rag
 ```
 
@@ -32,14 +34,16 @@ Download the model [Embedding Gemma](https://huggingface.co/unsloth/embeddinggem
 sqlite-rag download-model unsloth/embeddinggemma-300m-GGUF embeddinggemma-300M-Q8_0.gguf
 ```
 
-Then start with default settings:
+SQLite RAG comes preconfigured to work with the **Embedding Gemma** model. When you add a document or text, it automatically creates a new database (if one does not already exist) and uses default settings, so you can get started immediately without manual setup.
 
 ```bash
 # Initialize sqliterag.sqlite database and add documents
+sqlite-rag add-text "Artificial intelligence (AI) enables machines to learn from data"
+
 sqlite-rag add /path/to/documents --recursive
 
 # Search your documents
-sqlite-rag search "your search query"
+sqlite-rag search "explain AI"
 
 # Interactive mode
 sqlite-rag
@@ -61,24 +65,23 @@ sqlite-rag --help
 Settings are stored in the database and should be set before adding any documents.
 
 ```bash
-# Interactive configuration
-sqlite-rag configure
+# View available configuration options
+sqlite-rag configure --help
+
+sqlite-rag configure --model-path ./mymodels/path
 
 # View current settings
 sqlite-rag settings
-
-# View available configuration options
-sqlite-rag configure --help
 ```
 
-To use a different database path, use the global `--database` option:
+To use a different database filename, use the global `--database` option:
 
 ```bash
 # Single command with custom database
-sqlite-rag --database mydb.db add-text "What's AI?"
+sqlite-rag --database path/to/mydb.db add-text "Let's talk about AI."
 
 # Interactive mode with custom database
-sqlite-rag --database mydb.db
+sqlite-rag --database path/to/mydb.db
 ```
 
 ### Model Management
