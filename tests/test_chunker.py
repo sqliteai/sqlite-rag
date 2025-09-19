@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from sqlite_rag.chunker import Chunker
@@ -195,6 +197,31 @@ class TestOverlapFunctionality:
 class TestEdgeCases:
     """Test edge cases and error conditions."""
 
+    def test_overlap_applied_only_once(self, mock_conn):
+        """Test that overlap is applied only once, even when text goes through multiple separator levels."""
+        settings = Settings("test-model")
+        settings.chunk_size = 30  # Small chunk size to force splitting
+        settings.chunk_overlap = 8  # Significant overlap
+
+        chunker = Chunker(mock_conn, settings)
+
+        # Create text that will be split by multiple separators:
+        # 1. First by paragraphs (\n\n)
+        # 2. Then by sentences (.)
+        # 3. Finally by words ( )
+        text = "This is the first paragraph with multiple sentences. This should be split across separators.\n\nThis is the second paragraph with more content. This will also be split by multiple separators and should trigger the overlap bug."
+
+        chunks = chunker.chunk(text)
+
+        # Verify that no chunk exceeds the chunk_size limit
+        # If overlap is applied multiple times, chunks will be longer than chunk_size
+        for i, chunk in enumerate(chunks):
+            token_count = chunker._get_token_count(chunk.content)
+            assert token_count <= settings.chunk_size, (
+                f"Chunk {i} exceeds size limit: {token_count} tokens > {settings.chunk_size} tokens. "
+                f"Content: '{chunk.content[:100]}...'"
+            )
+
     def test_chunk_size_equals_overlap(self, mock_conn):
         """Test when chunk_size equals chunk_overlap."""
         settings = Settings("test-model")
@@ -219,3 +246,21 @@ class TestEdgeCases:
 
         chunks = chunker.chunk(text)
         assert len(chunks) >= 1
+
+    def test_split_by_character_with_long_string(self, chunker_large):
+        """Long string to be split by characters should be split in chunks
+        with similar size, not become zone-length and loop forever."""
+        with open(Path(__file__).parent / "assets" / "doc-base64-images.md", "r") as f:
+            text = f.read()
+
+        chunks = chunker_large.chunk(text)
+
+        assert len(chunks) > 0
+        for chunk in chunks:
+            assert len(chunk.content)
+            assert (
+                chunker_large._get_token_count(chunk.content)
+                <= chunker_large._settings.chunk_size
+            ), pytest.fail(
+                f"Chunk exceeds size limit: {chunker_large._get_token_count(chunk.content)} tokens > {chunker_large._settings.chunk_size} tokens"
+            )

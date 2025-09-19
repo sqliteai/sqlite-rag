@@ -47,7 +47,8 @@ class Chunker:
             "",  # Character level (fallback)
         ]
 
-        return self._split_text_with_separators(text, separators)
+        chunks = self._split_text_with_separators(text, separators)
+        return self._apply_overlap(chunks)
 
     def _split_text_with_separators(
         self, text: str, separators: List[str]
@@ -100,7 +101,7 @@ class Chunker:
         if current_chunk:
             chunks.append(Chunk(content=current_chunk.strip()))
 
-        return self._apply_overlap(chunks)
+        return chunks
 
     def _split_by_characters(self, text: str) -> List[Chunk]:
         """Split text at character level when no separators work."""
@@ -133,7 +134,8 @@ class Chunker:
                 self._get_token_count(chunk_text) > effective_chunk_size
                 and end > start + 1
             ):
-                end = int(end * 0.9)  # Reduce by 10%
+                attempt_chunk_size = int((end - start) * 0.9)  # Reduce by 10%
+                end = start + attempt_chunk_size
                 chunk_text = text[start:end]
 
             if chunk_text.strip():
@@ -141,7 +143,7 @@ class Chunker:
 
             start = end
 
-        return self._apply_overlap(chunks)
+        return chunks
 
     def _apply_overlap(self, chunks: List[Chunk]) -> List[Chunk]:
         """Apply overlap between consecutive chunks."""
