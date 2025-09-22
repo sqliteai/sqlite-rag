@@ -28,7 +28,7 @@ dependencies = [
     "markitdown[xlsx]",
     "prompt-toolkit",
     "sqlite-ai",
-    "sqlite-vector"
+    "sqliteai-vector"
 ]
 
 [project.optional-dependencies]
