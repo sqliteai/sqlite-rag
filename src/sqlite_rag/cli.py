@@ -109,6 +109,7 @@ def configure_settings(
     ctx: typer.Context,
     force: bool = typer.Option(
         False,
+        "-f",
         "--force",
         help="Force update even if critical settings change (like model or embedding dimension)",
     ),
@@ -188,7 +189,7 @@ def configure_settings(
 
     conn = Database.new_connection(rag_context.database_path)
     settings_manager = SettingsManager(conn)
-    settings_manager.configure(updates)
+    settings_manager.configure(updates, force=force)
 
     show_settings(ctx)
     typer.echo("Settings updated.")
