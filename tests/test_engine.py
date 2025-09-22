@@ -1,8 +1,11 @@
+import pytest
+
 from sqlite_rag.chunker import Chunker
 from sqlite_rag.engine import Engine
 from sqlite_rag.models.chunk import Chunk
 from sqlite_rag.models.document import Document
 from sqlite_rag.repository import Repository
+from sqlite_rag.settings import Settings
 
 
 class TestEngine:
@@ -192,3 +195,32 @@ class TestEngine:
         assert len(results) > 0
         assert doc1_id == results[0].document.id
         assert 0.0 == results[0].vec_distance
+
+    def test_extract_document_title(self):
+        text = """# This is the Title
+        This is the content of the document.
+        It has multiple lines.
+        """
+
+        engine = Engine(None, Settings(), None)  # type: ignore
+
+        title = engine.extract_document_title(text)
+        assert title == "This is the Title"
+
+    @pytest.mark.parametrize(
+        "fallback, expected_title",
+        [
+            (True, "This is the first line of the document without a title."),
+            (False, None),
+        ],
+    )
+    def test_extract_document_title_from_first_line(self, fallback, expected_title):
+        text = """
+        This is the first line of the document without a title.
+        It has multiple lines.
+        """
+
+        engine = Engine(None, Settings(), None)  # type: ignore
+
+        title = engine.extract_document_title(text, fallback)
+        assert title == expected_title

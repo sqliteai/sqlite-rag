@@ -215,6 +215,24 @@ class Engine:
             "vector_version": row["vector_version"],
         }
 
+    def extract_document_title(
+        self, text: str, fallback_first_line: bool = False
+    ) -> str | None:
+        """Extract title from markdown content."""
+        # Look for first level-1 heading
+        match = re.search(r"^# (.+)$", text, re.MULTILINE)
+        if match:
+            return match.group(1).strip()
+
+        # Fallback: first non-empty line
+        if fallback_first_line:
+            for line in text.splitlines():
+                line = line.strip()
+                if line:
+                    return line
+
+        return None
+
     def close(self):
         """Close the database connection."""
         try:

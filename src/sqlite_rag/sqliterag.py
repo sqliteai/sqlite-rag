@@ -102,6 +102,11 @@ class SQLiteRag:
                     else str(file_path.absolute())
                 )
                 document = Document(content=content, uri=uri, metadata=metadata)
+                document.metadata["generated"]["title"] = (
+                    self._engine.extract_document_title(
+                        document.content, fallback_first_line=True
+                    )
+                )
 
                 exists = self._repository.document_exists_by_hash(document.hash())
                 if exists:
