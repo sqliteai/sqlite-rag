@@ -102,6 +102,8 @@ class SQLiteRag:
                     else str(file_path.absolute())
                 )
                 document = Document(content=content, uri=uri, metadata=metadata)
+                if "generated" not in document.metadata:
+                    document.metadata["generated"] = {}
                 document.metadata["generated"]["title"] = (
                     self._engine.extract_document_title(
                         document.content, fallback_first_line=True
