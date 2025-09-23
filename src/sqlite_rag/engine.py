@@ -35,7 +35,7 @@ class Engine:
         )
 
     def process(self, document: Document) -> Document:
-        chunks = self._chunker.chunk(document.content)
+        chunks = self._chunker.chunk(document.content, document.metadata)
         chunks = self.generate_embedding(chunks)
         document.chunks = chunks
         return document
@@ -46,12 +46,18 @@ class Engine:
         for chunk in chunks:
             cursor = self._conn.cursor()
 
-            try:
-                cursor.execute(
-                    "SELECT llm_embed_generate(?) AS embedding", (chunk.content,)
+            # Format using the prompt template if available
+            content = chunk.content
+            if self._settings.use_prompt_templates:
+                title = chunk.title if chunk.title else "none"
+                content = self._settings.prompt_template_retrieval_document.format(
+                    title=title, content=chunk.content
                 )
+
+            try:
+                cursor.execute("SELECT llm_embed_generate(?) AS embedding", (content,))
             except sqlite3.Error as e:
-                print(f"Error generating embedding for chunk\n: ```{chunk.content}```")
+                print(f"Error generating embedding for chunk\n: ```{content}```")
                 raise e
 
             result = cursor.fetchone()

@@ -31,6 +31,7 @@ class Settings:
         "distance=cosine"  # e.g. distance=metric,other=value,...
     )
 
+    # It includes the overlap size but not the prompt template length
     chunk_size: int = 384
     # Tokens overlap between chunks
     chunk_overlap: int = 48
@@ -53,8 +54,13 @@ class Settings:
     # Some models are trained to work better with specific prompts
     # depending on the task. For example, Gemma models work better
     # when the prompt includes a task description.
+    # More: https://huggingface.co/unsloth/embeddinggemma-300m-GGUF#prompt-instructions
     #
 
+    use_prompt_templates: bool = True
+
+    # Template to index documents for retrieval, use `{title}` with the title or the string `"none"`
+    prompt_template_retrieval_document: str = "title: {title} | text: {content}"
     prompt_template_retrieval_query: str = "task: search result | query: {content}"
 
 

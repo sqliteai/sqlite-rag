@@ -42,7 +42,7 @@ def mock_conn():
 @pytest.fixture
 def chunker_large(mock_conn):
     """Fixture providing a chunker with large chunk size."""
-    settings = Settings("test-model")
+    settings = Settings("test-model", use_prompt_templates=False)
     settings.chunk_size = 100
     settings.chunk_overlap = 20
     return Chunker(mock_conn, settings)
@@ -51,7 +51,7 @@ def chunker_large(mock_conn):
 @pytest.fixture
 def chunker_small(mock_conn):
     """Fixture providing a chunker with small chunk size."""
-    settings = Settings("test-model")
+    settings = Settings("test-model", use_prompt_templates=False)
     settings.chunk_size = 25
     settings.chunk_overlap = 5
     return Chunker(mock_conn, settings)
@@ -60,7 +60,7 @@ def chunker_small(mock_conn):
 @pytest.fixture
 def chunker_tiny(mock_conn):
     """Fixture providing a chunker with tiny chunk size."""
-    settings = Settings("test-model")
+    settings = Settings("test-model", use_prompt_templates=False)
     settings.chunk_size = 8
     settings.chunk_overlap = 2
     return Chunker(mock_conn, settings)
@@ -84,6 +84,27 @@ class TestSingleChunk:
 
         assert len(chunks) == 1
         assert chunks[0].content == ""
+
+    def test_chunk_enrichness_with_input_title(self, chunker_large):
+        """Test that chunk enrichment adds metadata correctly."""
+        text = "This is a test chunk."
+        metadata = {"title": "Test Title"}
+
+        chunks = chunker_large.chunk(text, metadata)
+
+        assert len(chunks) == 1
+        assert chunks[0].content == text
+        assert chunks[0].title == "Test Title"
+
+    def test_chunk_enrichness_with_generated_title(self, chunker_large):
+        text = "# My title\n\nThis is a paragraph to test chunk."
+        metadata = {"generated": {"title": "My title"}}
+
+        chunks = chunker_large.chunk(text, metadata)
+
+        assert len(chunks) == 1
+        assert chunks[0].content == text
+        assert chunks[0].title == "My title"
 
 
 class TestParagraphSplitting:

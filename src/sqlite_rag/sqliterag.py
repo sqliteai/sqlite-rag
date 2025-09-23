@@ -272,7 +272,7 @@ class SQLiteRag:
         if new_context:
             self._engine.create_new_context()
 
-        if self._settings.prompt_template_retrieval_query:
+        if self._settings.use_prompt_templates:
             query = self._settings.prompt_template_retrieval_query.format(content=query)
 
         return self._engine.search(query, top_k=top_k)

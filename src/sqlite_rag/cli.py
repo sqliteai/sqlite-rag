@@ -149,6 +149,15 @@ def configure_settings(
     use_gpu: Optional[bool] = typer.Option(
         None, help="Whether to allow sqlite-ai extension to use the GPU"
     ),
+    no_prompt_templates: bool = typer.Option(
+        False,
+        "--no-prompt-templates",
+        help="Disable prompt templates for embedding generation",
+    ),
+    prompt_template_retrieval_document: Optional[str] = typer.Option(
+        None,
+        help="Template for retrieval document prompts. Supported placeholders are `{title}` and `{content}`",
+    ),
     prompt_template_retrieval_query: Optional[str] = typer.Option(
         None,
         help="Template for retrieval query prompts, use `{content}` as placeholder",
@@ -176,9 +185,13 @@ def configure_settings(
         "weight_fts": weight_fts,
         "weight_vec": weight_vec,
         "use_gpu": use_gpu,
+        "use_prompt_templates": (
+            False if no_prompt_templates else None
+        ),  # Set only if True
+        "prompt_template_retrieval_document": prompt_template_retrieval_document,
         "prompt_template_retrieval_query": prompt_template_retrieval_query,
     }
-
+    print(updates)
     # Filter out None values (unset options)
     updates = {k: v for k, v in updates.items() if v is not None}
 

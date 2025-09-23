@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 
 from sqlite_rag import SQLiteRag
+from sqlite_rag.engine import Engine
+from sqlite_rag.settings import Settings
 
 
 class TestSQLiteRag:
@@ -512,10 +514,12 @@ class TestSQLiteRag:
 
         assert not Path(temp_file_path).exists()
 
+
+class TestSQLiteRagSearch:
     def test_search_exact_match(self):
         # cosin distance for searching embedding is exact 0.0 when strings match
         settings = {
-            "prompt_template_retrieval_query": None,
+            "use_prompt_templates": False,
             "other_vector_options": "distance=cosine",
         }
 
@@ -553,7 +557,7 @@ class TestSQLiteRag:
         # Test that searching for exact content from sample files returns distance 0
         # FTS not included in the combined score
         settings = {
-            "prompt_template_retrieval_query": None,
+            "use_prompt_templates": False,
             "other_vector_options": "distance=cosine",
             "weight_fts": 0.0,
             "quantize_scan": quantize_scan,
@@ -605,3 +609,33 @@ class TestSQLiteRag:
             content=query
         )
         mock_engine.search.assert_called_once_with(expected_query, top_k=10)
+
+    @pytest.mark.parametrize("use_prompt_templates", [True, False])
+    def test_search_with_prompt_template(self, mocker, use_prompt_templates):
+        # Arrange
+        mock_conn = mocker.Mock()
+        mock_cursor = mocker.Mock()
+        mock_cursor.fetchone.return_value = {"embedding": b"fake_embedding"}
+        mock_cursor.fetchall.return_value = []
+        mock_conn.cursor.return_value = mock_cursor
+
+        settings = Settings(
+            use_prompt_templates=use_prompt_templates,
+            prompt_template_retrieval_document="Title: {title}\nContent: {content}",
+        )
+
+        engine = Engine(mock_conn, settings, mocker.Mock())
+
+        # Act
+        engine.search("test query")
+
+        # Assert - verify the query embedding generation used correct content
+        expected_content = (
+            "Title: none\nContent: test query" if use_prompt_templates else "test query"
+        )
+
+        # Check that cursor.execute was called with the formatted query content for embedding generation
+        calls = mock_cursor.execute.call_args_list
+        embedding_call = calls[0]  # First call should be for generating query embedding
+        assert embedding_call[0][0] == "SELECT llm_embed_generate(?) AS embedding"
+        assert embedding_call[0][1] == (expected_content,)

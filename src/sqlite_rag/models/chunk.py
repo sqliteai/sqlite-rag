@@ -8,3 +8,5 @@ class Chunk:
     content: str = ""
     embedding: str | bytes = b""
     core_start_pos: int = 0
+
+    title: str | None = None

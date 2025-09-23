@@ -35,7 +35,7 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-mock",
-    "pytest-cov",
+    "pytest-cov==6.3.0",
     "black",
     "flake8",
     "bandit",

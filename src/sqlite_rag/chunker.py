@@ -11,12 +11,15 @@ class Chunker:
         self._conn = conn
         self._settings = settings
 
-    def chunk(self, text: str) -> list[Chunk]:
+    def chunk(self, text: str, metadata: dict = {}) -> list[Chunk]:
         """Chunk text using Recursive Character Text Splitter."""
+        chunks = []
         if self._get_token_count(text) <= self._settings.chunk_size:
-            return [Chunk(content=text)]
+            chunks = [Chunk(content=text)]
+        else:
+            chunks = self._recursive_split(text)
 
-        return self._recursive_split(text)
+        return self._enrich_chunk(chunks, metadata)
 
     def _get_token_count(self, text: str) -> int:
         """Get token count using SQLite AI extension."""
@@ -190,3 +193,13 @@ class Chunker:
 
         # If even single word is too large, return empty
         return ""
+
+    def _enrich_chunk(self, chunks: List[Chunk], metadata: dict) -> List[Chunk]:
+        """Add extra information to chunk which may improve the model embeddings."""
+        for chunk in chunks:
+            if "title" in metadata:
+                chunk.title = metadata["title"]
+            elif "title" in metadata.get("generated", {}):
+                chunk.title = metadata["generated"]["title"]
+
+        return chunks

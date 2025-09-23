@@ -18,6 +18,41 @@ class TestEngine:
         assert result_chunks[0].embedding is not None
         assert isinstance(result_chunks[0].embedding, bytes)
 
+    @pytest.mark.parametrize("use_prompt_templates", [True, False])
+    def test_generate_embedding_with_prompt_template(
+        self, mocker, use_prompt_templates
+    ):
+        # Arrange
+        mock_conn = mocker.Mock()
+        mock_cursor = mocker.Mock()
+        mock_cursor.fetchone.return_value = {"embedding": b"fake_embedding"}
+        mock_conn.cursor.return_value = mock_cursor
+
+        settings = Settings(
+            use_prompt_templates=use_prompt_templates,
+            prompt_template_retrieval_document="Title: {title}\nContent: {content}",
+        )
+
+        engine = Engine(mock_conn, settings, mocker.Mock())
+
+        chunk = Chunk(
+            content="Test content",
+            title="Test Title",
+        )
+
+        # Act
+        engine.generate_embedding([chunk])
+
+        # Assert - verify cursor.execute was called with formatted template
+        expected_content = (
+            "Title: Test Title\nContent: Test content"
+            if use_prompt_templates
+            else "Test content"
+        )
+        mock_cursor.execute.assert_called_with(
+            "SELECT llm_embed_generate(?) AS embedding", (expected_content,)
+        )
+
     def test_search_with_empty_database(self, engine):
         results = engine.search("nonexistent query", top_k=5)
 
