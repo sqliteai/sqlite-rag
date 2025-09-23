@@ -151,7 +151,7 @@ def configure_settings(
     ),
     prompt_template_retrieval_query: Optional[str] = typer.Option(
         None,
-        help="Template for retrieval query prompts, use {content} as placeholder",
+        help="Template for retrieval query prompts, use `{content}` as placeholder",
     ),
 ):
     """Configure settings for the RAG system.

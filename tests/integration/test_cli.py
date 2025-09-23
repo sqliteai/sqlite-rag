@@ -29,6 +29,8 @@ class TestCLI:
                     "configure",
                     "--model-path",
                     str(model_path),
+                    "--prompt-template-retrieval-query",
+                    "",
                     "--other-vector-options",
                     "distance=cosine",
                 ],

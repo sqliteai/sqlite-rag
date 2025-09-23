@@ -514,7 +514,10 @@ class TestSQLiteRag:
 
     def test_search_exact_match(self):
         # cosin distance for searching embedding is exact 0.0 when strings match
-        settings = {"other_vector_options": "distance=cosine"}
+        settings = {
+            "prompt_template_retrieval_query": None,
+            "other_vector_options": "distance=cosine",
+        }
 
         temp_file_path = os.path.join(tempfile.mkdtemp(), "something")
 
@@ -550,6 +553,7 @@ class TestSQLiteRag:
         # Test that searching for exact content from sample files returns distance 0
         # FTS not included in the combined score
         settings = {
+            "prompt_template_retrieval_query": None,
             "other_vector_options": "distance=cosine",
             "weight_fts": 0.0,
             "quantize_scan": quantize_scan,
