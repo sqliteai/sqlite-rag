@@ -241,9 +241,13 @@ class Engine:
 
     def close(self):
         """Close the database connection."""
-        try:
-            self._conn.execute("SELECT llm_model_free();")
-        except sqlite3.ProgrammingError:
-            # When connection is already closed the model
-            # is already freed.
-            pass
+        if self._conn:
+            try:
+                self._conn.execute("SELECT llm_model_free();")
+            except sqlite3.ProgrammingError:
+                # When connection is already closed the model
+                # is already freed.
+                pass
+
+    def __del__(self):
+        self.close()

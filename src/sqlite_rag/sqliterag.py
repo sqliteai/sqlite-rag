@@ -294,6 +294,9 @@ class SQLiteRag:
 
     def close(self) -> None:
         """Free up resources"""
+        self._engine.close()
         if self._conn:
-            self._engine.close()
             self._conn.close()
+
+    def __del__(self):
+        self.close()
