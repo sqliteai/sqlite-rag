@@ -45,6 +45,7 @@ test-results/
 .coverage
 .coverage.*
 htmlcov/
+coverage.xml
 
 # Jupyter Notebook
 .ipynb_checkpoints

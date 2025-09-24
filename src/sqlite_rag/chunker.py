@@ -7,6 +7,8 @@ from .settings import Settings
 
 
 class Chunker:
+    ESTIMATE_CHARS_PER_TOKEN = 4
+
     def __init__(self, conn: sqlite3.Connection, settings: Settings):
         self._conn = conn
         self._settings = settings
@@ -14,6 +16,7 @@ class Chunker:
     def chunk(self, text: str, metadata: dict = {}) -> list[Chunk]:
         """Chunk text using Recursive Character Text Splitter."""
         chunks = []
+
         if self._get_token_count(text) <= self._settings.chunk_size:
             chunks = [Chunk(content=text)]
         else:
@@ -25,13 +28,19 @@ class Chunker:
         """Get token count using SQLite AI extension."""
         if text == "":
             return 0
+
+        # Fallback to estimated token count for very large texts
+        # to avoid performance issues
+        if len(text) > self._settings.chunk_size * self.ESTIMATE_CHARS_PER_TOKEN * 2:
+            return self._estimate_tokens_count(text)
+
         cursor = self._conn.execute("SELECT llm_token_count(?) AS count", (text,))
         return cursor.fetchone()["count"]
 
     def _estimate_tokens_count(self, text: str) -> int:
         """Estimate token count more conservatively."""
         # This is a simple heuristic; adjust as needed
-        return (len(text) + 3) // 4
+        return (len(text) + 3) // self.ESTIMATE_CHARS_PER_TOKEN
 
     def _recursive_split(self, text: str) -> List[Chunk]:
         """Recursively split text into chunks with overlap."""
@@ -119,7 +128,7 @@ class Chunker:
         chars_per_token = (
             math.ceil(len(text) / total_tokens)
             if total_tokens > 0
-            else 4  # Assume 4 chars per token if no tokens found
+            else self.ESTIMATE_CHARS_PER_TOKEN  # Assume chars per token if no tokens found
         )
 
         # Estimate characters that fit the chunk size

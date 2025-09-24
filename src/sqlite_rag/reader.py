@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 from markitdown import MarkItDown, StreamInfo
 
@@ -45,12 +46,20 @@ class FileReader:
         return path.suffix.lower() in FileReader.extensions
 
     @staticmethod
-    def parse_file(path: Path) -> str:
+    def parse_file(path: Path, max_document_size_bytes: Optional[int] = None) -> str:
         try:
             converter = MarkItDown()
-            return converter.convert(
+            text = converter.convert(
                 path, stream_info=StreamInfo(charset="utf8")
             ).text_content
+
+            # Truncate text characters to max size if needed
+            text = text.encode("utf-8", errors="ignore")
+            if max_document_size_bytes:
+                text = text[:max_document_size_bytes]
+
+            return text.decode("utf-8", errors="ignore")
+
         except Exception as exc:
             raise ValueError(f"Failed to parse file {path}") from exc
 

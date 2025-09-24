@@ -90,3 +90,24 @@ class TestFileReader:
         # is trying to decode as ASCII instead of UTF-8
         content = FileReader.parse_file(Path(f.name))
         assert "# This is a document with a Unicode character: ±" in content
+
+    def test_parse_file_with_max_document_size_bytes(self):
+        """Test that FileReader truncates content when max_document_size_bytes is specified"""
+        long_content = "This is a very long document." * 100  # ~3000 chars
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
+            f.write(long_content.encode("utf-8"))
+            temp_file_path = f.name
+
+        max_size_bytes = 50
+        content = FileReader.parse_file(
+            Path(temp_file_path), max_document_size_bytes=max_size_bytes
+        )
+
+        # Content should be truncated to max_size bytes
+        assert len(content.encode("utf-8")) <= max_size_bytes
+        assert content.startswith("This is a very long document.")
+
+        # Test without size limit
+        full_content = FileReader.parse_file(Path(temp_file_path))
+        assert len(full_content) == len(long_content)
+        assert full_content == long_content

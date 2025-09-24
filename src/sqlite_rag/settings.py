@@ -67,6 +67,8 @@ class Settings:
     # Index settings
     #
 
+    # Maximum size of a document to process (in bytes)
+    max_document_size_bytes: int = 5 * 1024 * 1024  # 5 MB
     # Zero means no limit
     max_chunks_per_document: int = 1000
 

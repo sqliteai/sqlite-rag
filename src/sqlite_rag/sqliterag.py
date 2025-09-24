@@ -88,7 +88,9 @@ class SQLiteRag:
         self._logger.info(f"Processing {total_to_process} files...")
         try:
             for i, file_path in enumerate(files_to_process):
-                content = FileReader.parse_file(file_path)
+                content = FileReader.parse_file(
+                    file_path, self._settings.max_document_size_bytes
+                )
 
                 if not content:
                     self._logger.warning(
@@ -189,7 +191,9 @@ class SQLiteRag:
             if doc.uri and Path(doc.uri).exists():
                 # File still exists, recreate embeddings
                 try:
-                    content = FileReader.parse_file(Path(doc.uri))
+                    content = FileReader.parse_file(
+                        Path(doc.uri), self._settings.max_document_size_bytes
+                    )
                     doc.content = content
 
                     self._repository.remove_document(doc_id)

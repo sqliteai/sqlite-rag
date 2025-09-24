@@ -162,6 +162,10 @@ def configure_settings(
         None,
         help="Template for retrieval query prompts, use `{content}` as placeholder",
     ),
+    max_document_size_bytes: Optional[int] = typer.Option(
+        None,
+        help="Maximum size of a document to process (in bytes) before being truncated",
+    ),
     max_chunks_per_document: Optional[int] = typer.Option(
         None,
         help="Maximum number of chunks to generate per document (0 for no limit)",
@@ -194,6 +198,7 @@ def configure_settings(
         ),  # Set only if True
         "prompt_template_retrieval_document": prompt_template_retrieval_document,
         "prompt_template_retrieval_query": prompt_template_retrieval_query,
+        "max_document_size_bytes": max_document_size_bytes,
         "max_chunks_per_document": max_chunks_per_document,
     }
     print(updates)
