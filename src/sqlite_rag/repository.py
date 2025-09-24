@@ -28,10 +28,9 @@ class Repository:
         )
 
         for chunk in document.chunks:
-            # TODO: use the right vector_convert function based on the vector type
             cursor.execute(
-                "INSERT INTO chunks (document_id, content, embedding, core_start_pos) VALUES (?, ?, ?, ?)",
-                (document_id, chunk.content, chunk.embedding, chunk.core_start_pos),
+                "INSERT INTO chunks (document_id, content, embedding) VALUES (?, ?, ?)",
+                (document_id, chunk.content, chunk.embedding),
             )
             cursor.execute(
                 "INSERT INTO chunks_fts (rowid, content) VALUES (last_insert_rowid(), ?)",

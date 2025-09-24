@@ -7,7 +7,6 @@ from sqlite_rag.logger import Logger
 from sqlite_rag.models.document_result import DocumentResult
 
 from .chunker import Chunker
-from .models.chunk import Chunk
 from .models.document import Document
 from .settings import Settings
 
@@ -15,8 +14,6 @@ from .settings import Settings
 class Engine:
     # Considered a good default to normilize the score for RRF
     DEFAULT_RRF_K = 60
-
-    GENERATED_TITLE_MAX_CHARS = 100
 
     def __init__(self, conn: sqlite3.Connection, settings: Settings, chunker: Chunker):
         self._conn = conn
@@ -37,43 +34,38 @@ class Engine:
         )
 
     def process(self, document: Document) -> Document:
-        chunks = self._chunker.chunk(document.content, document.metadata)
+        if not document.get_title():
+            document.set_generated_title()
+
+        chunks = self._chunker.chunk(document)
 
         if self._settings.max_chunks_per_document > 0:
             chunks = chunks[: self._settings.max_chunks_per_document]
 
-        chunks = self.generate_embedding(chunks)
+        for chunk in chunks:
+            chunk.title = document.get_title()
+            chunk.embedding = self.generate_embedding(chunk.get_embedding_text())
+
         document.chunks = chunks
+
         return document
 
-    def generate_embedding(self, chunks: list[Chunk]) -> list[Chunk]:
+    def generate_embedding(self, text: str) -> bytes:
         """Generate embedding for the given text."""
+        cursor = self._conn.cursor()
 
-        for chunk in chunks:
-            cursor = self._conn.cursor()
+        try:
+            cursor.execute("SELECT llm_embed_generate(?) AS embedding", (text,))
+        except sqlite3.Error as e:
+            print(f"Error generating embedding for text\n: ```{text}```")
+            raise e
 
-            # Format using the prompt template if available
-            content = chunk.content
-            if self._settings.use_prompt_templates:
-                title = chunk.title if chunk.title else "none"
-                content = self._settings.prompt_template_retrieval_document.format(
-                    title=title, content=chunk.content
-                )
+        result = cursor.fetchone()
 
-            try:
-                cursor.execute("SELECT llm_embed_generate(?) AS embedding", (content,))
-            except sqlite3.Error as e:
-                print(f"Error generating embedding for chunk\n: ```{content}```")
-                raise e
+        if result is None:
+            raise RuntimeError("Failed to generate embedding.")
 
-            result = cursor.fetchone()
-
-            if result is None:
-                raise RuntimeError("Failed to generate embedding.")
-
-            chunk.embedding = result["embedding"]
-
-        return chunks
+        return result["embedding"]
 
     def quantize(self) -> None:
         """Quantize stored vector for faster search via quantized scan."""
@@ -114,7 +106,7 @@ class Engine:
 
     def search(self, query: str, top_k: int = 10) -> list[DocumentResult]:
         """Semantic search and full-text search sorted with Reciprocal Rank Fusion."""
-        query_embedding = self.generate_embedding([Chunk(content=query)])[0].embedding
+        query_embedding = self.generate_embedding(query)
 
         # Clean up and split into words
         # '*' is used to match while typing
@@ -172,7 +164,6 @@ class Engine:
                 documents.content as document_content,
                 documents.metadata,
                 chunks.content AS snippet,
-                chunks.core_start_pos,
                 vec_rank,
                 fts_rank,
                 combined_rank,
@@ -203,8 +194,7 @@ class Engine:
                     content=row["document_content"],
                     metadata=json.loads(row["metadata"]) if row["metadata"] else {},
                 ),
-                # remove overlapping text from the snippet
-                snippet=row["snippet"][row["core_start_pos"] :],
+                snippet=row["snippet"],
                 vec_rank=row["vec_rank"],
                 fts_rank=row["fts_rank"],
                 combined_rank=row["combined_rank"],
@@ -226,24 +216,6 @@ class Engine:
             "ai_version": row["ai_version"],
             "vector_version": row["vector_version"],
         }
-
-    def extract_document_title(
-        self, text: str, fallback_first_line: bool = False
-    ) -> str | None:
-        """Extract title from markdown content."""
-        # Look for first level-1 heading
-        match = re.search(r"^# (.+)$", text, re.MULTILINE)
-        if match:
-            return match.group(1).strip()
-
-        # Fallback: first non-empty line
-        if fallback_first_line:
-            for line in text.splitlines():
-                line = line.strip()
-                if line:
-                    return line[:self.GENERATED_TITLE_MAX_CHARS]
-
-        return None
 
     def close(self):
         """Close the database connection."""

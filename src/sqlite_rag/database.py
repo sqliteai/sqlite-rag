@@ -83,7 +83,6 @@ class Database:
                 document_id TEXT,
                 content TEXT,
                 embedding BLOB,
-                core_start_pos INTEGER DEFAULT 0,
                 FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE
             );
         """

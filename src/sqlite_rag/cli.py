@@ -117,10 +117,12 @@ def configure_settings(
         None, help="Path to the embedding model file (.gguf)"
     ),
     model_options: Optional[str] = typer.Option(
-        None, help="options specific for the model: See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text"
+        None,
+        help="options specific for the model: See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text",
     ),
     model_context_options: Optional[str] = typer.Option(
-        None, help="Options specific for model context creation. See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createcontext_settings-text"
+        None,
+        help="Options specific for model context creation. See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createcontext_settings-text",
     ),
     embedding_dim: Optional[int] = typer.Option(
         None, help="Dimension of the embedding vectors"

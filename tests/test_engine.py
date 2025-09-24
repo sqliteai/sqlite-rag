@@ -10,77 +10,42 @@ from sqlite_rag.settings import Settings
 
 class TestEngine:
     def test_generate_embedding(self, engine):
-        chunk = Chunk(content="This is a test chunk for embedding generation.")
+        text = "This is a test chunk for embedding generation."
 
-        result_chunks = engine.generate_embedding([chunk])
+        embedding = engine.generate_embedding(text)
 
-        assert len(result_chunks) == 1
-        assert result_chunks[0].embedding is not None
-        assert isinstance(result_chunks[0].embedding, bytes)
+        assert embedding is not None
+        assert isinstance(embedding, bytes)
 
-    @pytest.mark.parametrize("use_prompt_templates", [True, False])
-    def test_generate_embedding_with_prompt_template(
-        self, mocker, use_prompt_templates
-    ):
-        # Arrange
-        mock_conn = mocker.Mock()
-        mock_cursor = mocker.Mock()
-        mock_cursor.fetchone.return_value = {"embedding": b"fake_embedding"}
-        mock_conn.cursor.return_value = mock_cursor
+    def test_process_uses_get_embedding_text(self, mocker):
+        settings = Settings("test-model", use_prompt_templates=True)
+        settings.prompt_template_retrieval_document = "title: {title} | text: {content}"
 
-        settings = Settings(
-            use_prompt_templates=use_prompt_templates,
-            prompt_template_retrieval_document="Title: {title}\nContent: {content}",
-        )
-
-        engine = Engine(mock_conn, settings, mocker.Mock())
-
-        chunk = Chunk(
+        # Create a single mock chunk
+        mock_chunk = Chunk(
             content="Test content",
-            title="Test Title",
+            title="Test Doc",
+            head_overlap_text="overlap text",
+            prompt=settings.prompt_template_retrieval_document,
         )
 
-        # Act
-        engine.generate_embedding([chunk])
+        mock_conn = mocker.Mock()
+        mock_chunker = mocker.Mock()
+        mock_chunker.chunk.return_value = [mock_chunk]
 
-        # Assert - verify cursor.execute was called with formatted template
-        expected_content = (
-            "Title: Test Title\nContent: Test content"
-            if use_prompt_templates
-            else "Test content"
-        )
-        mock_cursor.execute.assert_called_with(
-            "SELECT llm_embed_generate(?) AS embedding", (expected_content,)
+        engine = Engine(mock_conn, settings, mock_chunker)
+
+        # Mock generate_embedding completely
+        mock_generate = mocker.patch.object(
+            engine, "generate_embedding", return_value=b"mock_embedding"
         )
 
-    def test_extract_document_title(self):
-        text = """# This is the Title
-        This is the content of the document.
-        It has multiple lines.
-        """
+        document = Document(content="Some text", metadata={"title": "Test Doc"})
+        engine.process(document)
 
-        engine = Engine(None, Settings(), None)  # type: ignore
-
-        title = engine.extract_document_title(text)
-        assert title == "This is the Title"
-
-    @pytest.mark.parametrize(
-        "fallback, expected_title",
-        [
-            (True, "This is the first line of the document without a title."),
-            (False, None),
-        ],
-    )
-    def test_extract_document_title_from_first_line(self, fallback, expected_title):
-        text = """
-        This is the first line of the document without a title.
-        It has multiple lines.
-        """
-
-        engine = Engine(None, Settings(), None)  # type: ignore
-
-        title = engine.extract_document_title(text, fallback)
-        assert title == expected_title
+        # Assert generate_embedding was called with chunk.get_embedding_text()
+        expected_text = mock_chunk.get_embedding_text()
+        mock_generate.assert_called_once_with(expected_text)
 
     @pytest.mark.parametrize(
         "max_chunks_per_document, expected_chunk_count",
@@ -269,6 +234,7 @@ class TestEngineSearch:
         conn, settings = db_conn
         # cosin distance for searching embedding is exact 0.0 when strings match
         settings.other_vector_options = "distance=cosine"
+        settings.use_prompt_templates = False
 
         engine = Engine(conn, settings, Chunker(conn, settings))
         engine.load_model()

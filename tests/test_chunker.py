@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from sqlite_rag.chunker import Chunker
+from sqlite_rag.models.document import Document
 from sqlite_rag.settings import Settings
 
 
@@ -66,13 +67,82 @@ def chunker_tiny(mock_conn):
     return Chunker(mock_conn, settings)
 
 
+class TestChunker:
+    def test_chunk_properties(self, mock_conn):
+        """Test that chunks have correct properties: content, title, overlap, and prompt."""
+        settings = Settings("test-model", use_prompt_templates=True)
+        settings.chunk_size = 20
+        settings.chunk_overlap = 10
+        settings.prompt_template_retrieval_document = (
+            "Title: {title}\nContent: {content}"
+        )
+
+        chunker = Chunker(mock_conn, settings)
+
+        text = "First paragraph with some content. Second paragraph with more content that will cause splitting."
+        document = Document(content=text, metadata={"title": "Test Document"})
+
+        chunks = chunker.chunk(document)
+
+        assert len(chunks) > 1, "Expected multiple chunks for test"
+
+        for i, chunk in enumerate(chunks):
+            assert chunk.content.strip()
+            assert chunk.title == "Test Document"
+            assert chunk.prompt == settings.prompt_template_retrieval_document
+
+            if i == 0:
+                assert chunk.head_overlap_text == ""
+            else:
+                assert chunk.head_overlap_text.strip()
+
+    def test_chunk_without_overlap(self, mock_conn):
+        """Test chunking without overlap."""
+        settings = Settings("test-model", use_prompt_templates=False)
+        settings.chunk_size = 10
+        settings.chunk_overlap = 0  # No overlap
+
+        chunker = Chunker(mock_conn, settings)
+        text = "First sentence. Second sentence. Third sentence. Fourth sentence."
+
+        chunks = chunker.chunk(Document(content=text))
+        assert len(chunks) > 1
+        for i, chunk in enumerate(chunks):
+            assert chunk.content.strip()
+            assert chunk.head_overlap_text == ""
+
+    def test_consider_effective_chunk_size(self, mock_conn):
+        """Test that effective chunk size is calculated correctly."""
+        settings = Settings("test-model", use_prompt_templates=True)
+        settings.chunk_size = 50
+        settings.chunk_overlap = 10
+        settings.prompt_template_retrieval_document = (
+            "Title: {title}\nContent: {content}"
+        )
+
+        chunker = Chunker(mock_conn, settings)
+
+        prompt = settings.prompt_template_retrieval_document.replace(
+            "{title}", "Sample Title"
+        ).replace("{content}", "")
+
+        prompt_token_count = chunker._get_token_count(prompt)
+
+        effective_size = chunker._get_effective_chunk_size(prompt)
+
+        assert (
+            effective_size
+            == settings.chunk_size - settings.chunk_overlap - prompt_token_count
+        )
+
+
 class TestSingleChunk:
     """Test cases for single chunk scenarios."""
 
     def test_short_text_single_chunk(self, chunker_large):
         """Test that short text returns a single chunk."""
         text = "This is a short text that should fit in a single chunk."
-        chunks = chunker_large.chunk(text)
+        chunks = chunker_large.chunk(Document(content=text))
 
         assert len(chunks) == 1
         assert chunks[0].content == text
@@ -80,7 +150,7 @@ class TestSingleChunk:
     def test_empty_text(self, chunker_large):
         """Test empty text handling."""
         text = ""
-        chunks = chunker_large.chunk(text)
+        chunks = chunker_large.chunk(Document(content=text))
 
         assert len(chunks) == 1
         assert chunks[0].content == ""
@@ -90,7 +160,7 @@ class TestSingleChunk:
         text = "This is a test chunk."
         metadata = {"title": "Test Title"}
 
-        chunks = chunker_large.chunk(text, metadata)
+        chunks = chunker_large.chunk(Document(content=text, metadata=metadata))
 
         assert len(chunks) == 1
         assert chunks[0].content == text
@@ -100,7 +170,7 @@ class TestSingleChunk:
         text = "# My title\n\nThis is a paragraph to test chunk."
         metadata = {"generated": {"title": "My title"}}
 
-        chunks = chunker_large.chunk(text, metadata)
+        chunks = chunker_large.chunk(Document(content=text, metadata=metadata))
 
         assert len(chunks) == 1
         assert chunks[0].content == text
@@ -114,11 +184,11 @@ class TestParagraphSplitting:
         """Test splitting by paragraphs."""
         text = """First paragraph with some content here.
 
-Second paragraph with different content.
+               Second paragraph with different content.
 
-Third paragraph with more text."""
+               Third paragraph with more text."""
 
-        chunks = chunker_small.chunk(text)
+        chunks = chunker_small.chunk(Document(content=text))
 
         assert len(chunks) > 1
         # Verify we have meaningful content in chunks
@@ -132,7 +202,7 @@ class TestSentenceSplitting:
         """Test splitting respects sentence boundaries."""
         text = "First sentence. Second sentence. Third sentence. Fourth sentence."
 
-        chunks = chunker_tiny.chunk(text)
+        chunks = chunker_tiny.chunk(Document(content=text))
 
         assert len(chunks) > 1
         # Most chunks should contain periods (sentence endings)
@@ -147,7 +217,7 @@ class TestWordSplitting:
         """Test splitting by spaces (words)."""
         text = "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10"
 
-        chunks = chunker_tiny.chunk(text)
+        chunks = chunker_tiny.chunk(Document(content=text))
 
         assert len(chunks) > 1
         # Each chunk should contain complete words
@@ -165,7 +235,7 @@ class TestCharacterFallback:
         # Very long word with no separators
         text = "supercalifragilisticexpialidociousthisisaverylongwordwithoutanyspacesorpunctuationatall"
 
-        chunks = chunker_tiny.chunk(text)
+        chunks = chunker_tiny.chunk(Document(content=text))
 
         assert len(chunks) > 1
         # Should create multiple chunks from the long word
@@ -175,7 +245,7 @@ class TestCharacterFallback:
         """Test that character splitting respects token limits."""
         text = "verylongwordwithoutanybreakpointsandshouldbesplitbycharacters"
 
-        chunks = chunker_tiny.chunk(text)
+        chunks = chunker_tiny.chunk(Document(content=text))
 
         # Each chunk should respect the chunk size limit
         for chunk in chunks:
@@ -190,7 +260,7 @@ class TestOverlapFunctionality:
         """Test that overlap exists between consecutive chunks."""
         text = "First sentence here. Second sentence here. Third sentence here. Fourth sentence here."
 
-        chunks = chunker_small.chunk(text)
+        chunks = chunker_small.chunk(Document(content=text))
 
         if len(chunks) > 1:
             # With overlap, chunks should share some content
@@ -211,7 +281,7 @@ class TestOverlapFunctionality:
         chunker = Chunker(mock_conn, settings)
         text = "First sentence. Second sentence. Third sentence. Fourth sentence."
 
-        chunks = chunker.chunk(text)
+        chunks = chunker.chunk(Document(content=text))
         assert len(chunks) >= 1
 
 
@@ -232,7 +302,7 @@ class TestEdgeCases:
         # 3. Finally by words ( )
         text = "This is the first paragraph with multiple sentences. This should be split across separators.\n\nThis is the second paragraph with more content. This will also be split by multiple separators and should trigger the overlap bug."
 
-        chunks = chunker.chunk(text)
+        chunks = chunker.chunk(Document(content=text))
 
         # Verify that no chunk exceeds the chunk_size limit
         # If overlap is applied multiple times, chunks will be longer than chunk_size
@@ -253,7 +323,7 @@ class TestEdgeCases:
         text = "This is a test sentence that should be handled gracefully."
 
         with pytest.raises(ValueError) as excinfo:
-            chunker.chunk(text)
+            chunker.chunk(Document(content=text))
         assert "Chunk size must be greater than chunk overlap." in str(excinfo.value)
 
     def test_very_small_chunk_size(self, mock_conn):
@@ -265,7 +335,7 @@ class TestEdgeCases:
         chunker = Chunker(mock_conn, settings)
         text = "Short text."
 
-        chunks = chunker.chunk(text)
+        chunks = chunker.chunk(Document(content=text))
         assert len(chunks) >= 1
 
     def test_split_by_character_with_long_string(self, chunker_large):
@@ -274,7 +344,7 @@ class TestEdgeCases:
         with open(Path(__file__).parent / "assets" / "doc-base64-images.md", "r") as f:
             text = f.read()
 
-        chunks = chunker_large.chunk(text)
+        chunks = chunker_large.chunk(Document(content=text))
 
         assert len(chunks) > 0
         for chunk in chunks:

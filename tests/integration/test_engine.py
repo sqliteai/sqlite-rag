@@ -20,7 +20,7 @@ class TestEngine:
         result_chunks = {}
         for i in range(1000):
             try:
-                chunk = engine.generate_embedding([Chunk(content=random_string())])
+                chunk = engine.generate_embeddings([Chunk(content=random_string())])
                 result_chunks[chunk[0].embedding.hex()] = chunk[0]
                 assert len(result_chunks) == i + 1
             except Exception as e:

@@ -1,6 +1,8 @@
 import math
 import sqlite3
-from typing import List
+from typing import List, Optional
+
+from sqlite_rag.models.document import Document
 
 from .models.chunk import Chunk
 from .settings import Settings
@@ -13,16 +15,47 @@ class Chunker:
         self._conn = conn
         self._settings = settings
 
-    def chunk(self, text: str, metadata: dict = {}) -> list[Chunk]:
+    def chunk(self, document: Document) -> list[Chunk]:
         """Chunk text using Recursive Character Text Splitter."""
-        chunks = []
+        chunk = self._create_chunk(document.content, title=document.get_title())
 
-        if self._get_token_count(text) <= self._settings.chunk_size:
-            chunks = [Chunk(content=text)]
-        else:
-            chunks = self._recursive_split(text)
+        if (
+            self._get_token_count(chunk.get_embedding_text())
+            <= self._settings.chunk_size
+        ):
+            return [chunk]
 
-        return self._enrich_chunk(chunks, metadata)
+        return self._recursive_split(document)
+
+    def _create_chunk(
+        self,
+        content: str,
+        head_overlap_text: str = "",
+        title: Optional[str] = None,
+    ) -> Chunk:
+        prompt = None
+        if self._settings.use_prompt_templates:
+            prompt = self._settings.prompt_template_retrieval_document
+
+        return Chunk(
+            content=content,
+            head_overlap_text=head_overlap_text,
+            prompt=prompt,
+            title=title,
+        )
+
+    def _get_effective_chunk_size(self, prompt: str) -> int:
+        """Calculate effective chunk size considering overlap and other
+        prompt data useful to the model.
+
+        Args:
+            prompt: The prompt template without content.
+        """
+        if self._settings.chunk_size <= self._settings.chunk_overlap:
+            raise ValueError("Chunk size must be greater than chunk overlap.")
+
+        prompt_size = self._get_token_count(prompt)
+        return self._settings.chunk_size - self._settings.chunk_overlap - prompt_size
 
     def _get_token_count(self, text: str) -> int:
         """Get token count using SQLite AI extension."""
@@ -42,7 +75,7 @@ class Chunker:
         # This is a simple heuristic; adjust as needed
         return (len(text) + 3) // self.ESTIMATE_CHARS_PER_TOKEN
 
-    def _recursive_split(self, text: str) -> List[Chunk]:
+    def _recursive_split(self, document: Document) -> List[Chunk]:
         """Recursively split text into chunks with overlap."""
         separators = [
             "\n\n",  # Double newlines (paragraphs)
@@ -59,13 +92,33 @@ class Chunker:
             "",  # Character level (fallback)
         ]
 
-        chunks = self._split_text_with_separators(text, separators)
-        return self._apply_overlap(chunks)
+        empty_chunk = self._create_chunk("", title=document.get_title())
+        effective_chunk_size = max(
+            1, self._get_effective_chunk_size(empty_chunk.get_embedding_text())
+        )
+
+        chunks_content = self._split_text_with_separators(
+            document.content, separators, effective_chunk_size
+        )
+        overlaps = self._create_overlaps(chunks_content)
+
+        assert len(chunks_content) == len(overlaps), "Mismatch in chunks and overlaps"
+        return [
+            self._create_chunk(
+                content=chunk, head_overlap_text=overlap, title=document.get_title()
+            )
+            for chunk, overlap in zip(chunks_content, overlaps)
+        ]
 
     def _split_text_with_separators(
-        self, text: str, separators: List[str]
-    ) -> List[Chunk]:
-        """Split text using hierarchical separators."""
+        self, text: str, separators: List[str], effective_chunk_size: int
+    ) -> List[str]:
+        """Split text using hierarchical separators.
+        Args:
+            text: The text to split.
+            separators: List of separators to use in order.
+            effective_chunk_size: Reserved space for actual chunk content.
+        """
         chunks = []
 
         if self._settings.chunk_size <= self._settings.chunk_overlap:
@@ -73,18 +126,13 @@ class Chunker:
 
         if not separators:
             # Fallback: character-level splitting
-            return self._split_by_characters(text)
+            return self._split_by_characters(text, effective_chunk_size)
 
         separator = separators[0]
         remaining_separators = separators[1:]
 
         if separator == "":
-            return self._split_by_characters(text)
-
-        # Reserve space for overlap
-        effective_chunk_size = max(
-            1, self._settings.chunk_size - self._settings.chunk_overlap
-        )
+            return self._split_by_characters(text, effective_chunk_size)
 
         splits = text.split(separator)
         current_chunk = ""
@@ -97,12 +145,12 @@ class Chunker:
             else:
                 # Save current chunk if it exists
                 if current_chunk:
-                    chunks.append(Chunk(content=current_chunk.strip()))
+                    chunks.append(current_chunk)
 
                 # If single split is too large, recursively split it
                 if self._get_token_count(split) > effective_chunk_size:
                     sub_chunks = self._split_text_with_separators(
-                        split, remaining_separators
+                        split, remaining_separators, effective_chunk_size
                     )
                     chunks.extend(sub_chunks)
                     current_chunk = ""
@@ -111,18 +159,13 @@ class Chunker:
 
         # Add final chunk
         if current_chunk:
-            chunks.append(Chunk(content=current_chunk.strip()))
+            chunks.append(current_chunk)
 
         return chunks
 
-    def _split_by_characters(self, text: str) -> List[Chunk]:
+    def _split_by_characters(self, text: str, effective_chunk_size: int) -> List[str]:
         """Split text at character level when no separators work."""
         chunks = []
-
-        # Reserve space for overlap
-        effective_chunk_size = max(
-            1, self._settings.chunk_size - self._settings.chunk_overlap
-        )
 
         total_tokens = self._get_token_count(text)
         chars_per_token = (
@@ -151,40 +194,29 @@ class Chunker:
                 chunk_text = text[start:end]
 
             if chunk_text.strip():
-                chunks.append(Chunk(content=chunk_text.strip()))
+                chunks.append(chunk_text)
 
             start = end
 
         return chunks
 
-    def _apply_overlap(self, chunks: List[Chunk]) -> List[Chunk]:
+    def _create_overlaps(self, chunks: List[str]) -> List[str]:
         """Apply overlap between consecutive chunks."""
         if len(chunks) <= 1 or self._settings.chunk_overlap <= 0:
-            return chunks
+            # Empty overlap for each chunk
+            return [""] * len(chunks)
 
-        overlapped_chunks = [chunks[0]]  # First chunk has no overlap
+        overlapped_chunks = [""]  # First chunk has no overlap
 
         for i in range(1, len(chunks)):
-            current_content = chunks[i].content
-            prev_content = chunks[i - 1].content
+            prev_content = chunks[i - 1]
 
             # Get overlap text from end of previous chunk
             overlap_text = self._get_overlap_text(
                 prev_content, self._settings.chunk_overlap
             )
 
-            if overlap_text:
-                combined_content = overlap_text + " " + current_content
-                # Core content starts after overlap and separator
-                core_start_pos = len(overlap_text) + 1
-            else:
-                combined_content = current_content
-                # No overlap, core starts at beginning
-                core_start_pos = 0
-
-            overlapped_chunks.append(
-                Chunk(content=combined_content, core_start_pos=core_start_pos)
-            )
+            overlapped_chunks.append(overlap_text)
 
         return overlapped_chunks
 
@@ -202,13 +234,3 @@ class Chunker:
 
         # If even single word is too large, return empty
         return ""
-
-    def _enrich_chunk(self, chunks: List[Chunk], metadata: dict) -> List[Chunk]:
-        """Add extra information to chunk which may improve the model embeddings."""
-        for chunk in chunks:
-            if "title" in metadata:
-                chunk.title = metadata["title"]
-            elif "title" in metadata.get("generated", {}):
-                chunk.title = metadata["generated"]["title"]
-
-        return chunks

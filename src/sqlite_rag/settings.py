@@ -18,7 +18,7 @@ class Settings:
     model_options: str = ""
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createoptions-text
     model_context_options: str = (
-        "generate_embedding=1,normalize_embedding=1,pooling_type=mean,n_ctx=768,embedding_type=INT8"
+        "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=INT8"
     )
 
     # Allow the sqlite-ai extension to use the GPU
@@ -31,10 +31,10 @@ class Settings:
         "distance=cosine"  # e.g. distance=metric,other=value,...
     )
 
-    # It includes the overlap size but not the prompt template length
-    chunk_size: int = 384
+    # It includes the overlap size and the prompt template length
+    chunk_size: int = 512
     # Tokens overlap between chunks
-    chunk_overlap: int = 48
+    chunk_overlap: int = 61
 
     #
     # Search settings

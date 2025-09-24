@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from sqlite_rag import SQLiteRag
-from sqlite_rag.engine import Engine
 from sqlite_rag.settings import Settings
 
 
@@ -189,7 +188,10 @@ class TestSQLiteRag:
         assert doc
         assert doc[0] == "This is a test document content with some text to be indexed."
         assert doc[1] == "test_doc.txt"
-        assert doc[2] == '{"author": "test"}'
+        assert (
+            doc[2]
+            == '{"author": "test", "generated": {"title": "This is a test document content with some text to be indexed."}}'
+        )
 
         cursor = conn.execute("SELECT COUNT(*) FROM chunks")
         chunk_count = cursor.fetchone()[0]
@@ -257,7 +259,10 @@ class TestSQLiteRag:
         assert found_doc.id == doc_id
         assert found_doc.content == "Test document content."
         assert found_doc.uri == "test.txt"
-        assert found_doc.metadata == {"author": "test"}
+        assert found_doc.metadata == {
+            "author": "test",
+            "generated": {"title": "Test document content."},
+        }
 
     def test_find_document_by_uri(self):
         rag = SQLiteRag.create(":memory:")
@@ -272,7 +277,10 @@ class TestSQLiteRag:
         assert found_doc is not None
         assert found_doc.content == "Test document content."
         assert found_doc.uri == "test.txt"
-        assert found_doc.metadata == {"author": "test"}
+        assert found_doc.metadata == {
+            "author": "test",
+            "generated": {"title": "Test document content."},
+        }
 
     def test_find_document_not_found(self):
         rag = SQLiteRag.create(":memory:")
@@ -613,29 +621,28 @@ class TestSQLiteRagSearch:
     @pytest.mark.parametrize("use_prompt_templates", [True, False])
     def test_search_with_prompt_template(self, mocker, use_prompt_templates):
         # Arrange
-        mock_conn = mocker.Mock()
-        mock_cursor = mocker.Mock()
-        mock_cursor.fetchone.return_value = {"embedding": b"fake_embedding"}
-        mock_cursor.fetchall.return_value = []
-        mock_conn.cursor.return_value = mock_cursor
-
         settings = Settings(
             use_prompt_templates=use_prompt_templates,
-            prompt_template_retrieval_document="Title: {title}\nContent: {content}",
+            prompt_template_retrieval_query="task: search result | query: {content}",
         )
 
-        engine = Engine(mock_conn, settings, mocker.Mock())
+        # Mock engine and its search method
+        mock_engine = mocker.Mock()
+        mock_engine.search.return_value = []  # Empty search results
+
+        # Create SQLiteRag instance with mocked dependencies
+        rag = SQLiteRag(mocker.Mock(), settings)
+        rag._engine = mock_engine
+
+        mocker.patch.object(rag, "_ensure_initialized")
 
         # Act
-        engine.search("test query")
+        rag.search("test query", new_context=False)
 
-        # Assert - verify the query embedding generation used correct content
-        expected_content = (
-            "Title: none\nContent: test query" if use_prompt_templates else "test query"
+        # Assert - verify engine.search was called with correct formatted query
+        expected_query = (
+            "task: search result | query: test query"
+            if use_prompt_templates
+            else "test query"
         )
-
-        # Check that cursor.execute was called with the formatted query content for embedding generation
-        calls = mock_cursor.execute.call_args_list
-        embedding_call = calls[0]  # First call should be for generating query embedding
-        assert embedding_call[0][0] == "SELECT llm_embed_generate(?) AS embedding"
-        assert embedding_call[0][1] == (expected_content,)
+        mock_engine.search.assert_called_once_with(expected_query, top_k=10)
