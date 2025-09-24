@@ -18,7 +18,7 @@ class Settings:
     model_options: str = ""
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createoptions-text
     model_context_options: str = (
-        "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=INT8"
+        "generate_embedding=1,normalize_embedding=1,pooling_type=mean,n_ctx=768,embedding_type=INT8"
     )
 
     # Allow the sqlite-ai extension to use the GPU

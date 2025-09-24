@@ -116,8 +116,11 @@ def configure_settings(
     model_path: Optional[str] = typer.Option(
         None, help="Path to the embedding model file (.gguf)"
     ),
-    model_config: Optional[str] = typer.Option(
-        None, help="Model configuration parameters"
+    model_options: Optional[str] = typer.Option(
+        None, help="options specific for the model: See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text"
+    ),
+    model_context_options: Optional[str] = typer.Option(
+        None, help="Options specific for model context creation. See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createcontext_settings-text"
     ),
     embedding_dim: Optional[int] = typer.Option(
         None, help="Dimension of the embedding vectors"
@@ -182,7 +185,9 @@ def configure_settings(
     # Build updates dict from all provided parameters
     updates = {
         "model_path": model_path,
-        "model_config": model_config,
+        "model_options": model_options,
+        "model_context_options": model_context_options,
+        "use_gpu": use_gpu,
         "embedding_dim": embedding_dim,
         "vector_type": vector_type,
         "other_vector_options": other_vector_options,
@@ -192,7 +197,6 @@ def configure_settings(
         "quantize_preload": quantize_preload,
         "weight_fts": weight_fts,
         "weight_vec": weight_vec,
-        "use_gpu": use_gpu,
         "use_prompt_templates": (
             False if no_prompt_templates else None
         ),  # Set only if True

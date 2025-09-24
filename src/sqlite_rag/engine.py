@@ -16,6 +16,8 @@ class Engine:
     # Considered a good default to normilize the score for RRF
     DEFAULT_RRF_K = 60
 
+    GENERATED_TITLE_MAX_CHARS = 100
+
     def __init__(self, conn: sqlite3.Connection, settings: Settings, chunker: Chunker):
         self._conn = conn
         self._settings = settings
@@ -239,7 +241,7 @@ class Engine:
             for line in text.splitlines():
                 line = line.strip()
                 if line:
-                    return line
+                    return line[:self.GENERATED_TITLE_MAX_CHARS]
 
         return None
 
