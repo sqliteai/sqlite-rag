@@ -53,6 +53,74 @@ class TestEngine:
             "SELECT llm_embed_generate(?) AS embedding", (expected_content,)
         )
 
+    def test_extract_document_title(self):
+        text = """# This is the Title
+        This is the content of the document.
+        It has multiple lines.
+        """
+
+        engine = Engine(None, Settings(), None)  # type: ignore
+
+        title = engine.extract_document_title(text)
+        assert title == "This is the Title"
+
+    @pytest.mark.parametrize(
+        "fallback, expected_title",
+        [
+            (True, "This is the first line of the document without a title."),
+            (False, None),
+        ],
+    )
+    def test_extract_document_title_from_first_line(self, fallback, expected_title):
+        text = """
+        This is the first line of the document without a title.
+        It has multiple lines.
+        """
+
+        engine = Engine(None, Settings(), None)  # type: ignore
+
+        title = engine.extract_document_title(text, fallback)
+        assert title == expected_title
+
+    @pytest.mark.parametrize(
+        "max_chunks_per_document, expected_chunk_count",
+        [(0, 2), (1, 1), (4, 2)],
+    )
+    def test_process_with_max_chunks_per_document(
+        self, mocker, max_chunks_per_document, expected_chunk_count
+    ):
+        # Arrange
+        chunks = [
+            Chunk(content="Chunk 1"),
+            Chunk(content="Chunk 2"),
+            Chunk(content="Chunk 3"),
+        ]
+
+        mock_conn = mocker.Mock()
+        settings = Settings(max_chunks_per_document=max_chunks_per_document)
+        mock_chunker = mocker.Mock()
+        mock_chunker.chunk.return_value = chunks
+
+        engine = Engine(mock_conn, settings, mock_chunker)
+
+        mock_generate_embedding = mocker.patch.object(engine, "generate_embedding")
+        mock_generate_embedding = mocker.spy(
+            mock_generate_embedding, "generate_embedding"
+        )
+        mock_generate_embedding.return_value = chunks
+
+        document = Document(content="Test document content")
+
+        # Act
+        engine.process(document)
+
+        # Assert
+        for call_args in mock_generate_embedding.call_args_list:
+            chunks = call_args[0][0]  # First argument
+            assert len(chunks) == expected_chunk_count
+
+
+class TestEngineSearch:
     def test_search_with_empty_database(self, engine):
         results = engine.search("nonexistent query", top_k=5)
 
@@ -230,32 +298,3 @@ class TestEngine:
         assert len(results) > 0
         assert doc1_id == results[0].document.id
         assert 0.0 == results[0].vec_distance
-
-    def test_extract_document_title(self):
-        text = """# This is the Title
-        This is the content of the document.
-        It has multiple lines.
-        """
-
-        engine = Engine(None, Settings(), None)  # type: ignore
-
-        title = engine.extract_document_title(text)
-        assert title == "This is the Title"
-
-    @pytest.mark.parametrize(
-        "fallback, expected_title",
-        [
-            (True, "This is the first line of the document without a title."),
-            (False, None),
-        ],
-    )
-    def test_extract_document_title_from_first_line(self, fallback, expected_title):
-        text = """
-        This is the first line of the document without a title.
-        It has multiple lines.
-        """
-
-        engine = Engine(None, Settings(), None)  # type: ignore
-
-        title = engine.extract_document_title(text, fallback)
-        assert title == expected_title

@@ -63,6 +63,13 @@ class Settings:
     prompt_template_retrieval_document: str = "title: {title} | text: {content}"
     prompt_template_retrieval_query: str = "task: search result | query: {content}"
 
+    #
+    # Index settings
+    #
+
+    # Zero means no limit
+    max_chunks_per_document: int = 1000
+
 
 class SettingsManager:
     def __init__(self, connection: sqlite3.Connection):

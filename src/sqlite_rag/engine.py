@@ -36,6 +36,10 @@ class Engine:
 
     def process(self, document: Document) -> Document:
         chunks = self._chunker.chunk(document.content, document.metadata)
+
+        if self._settings.max_chunks_per_document > 0:
+            chunks = chunks[: self._settings.max_chunks_per_document]
+
         chunks = self.generate_embedding(chunks)
         document.chunks = chunks
         return document

@@ -162,6 +162,10 @@ def configure_settings(
         None,
         help="Template for retrieval query prompts, use `{content}` as placeholder",
     ),
+    max_chunks_per_document: Optional[int] = typer.Option(
+        None,
+        help="Maximum number of chunks to generate per document (0 for no limit)",
+    ),
 ):
     """Configure settings for the RAG system.
 
@@ -190,6 +194,7 @@ def configure_settings(
         ),  # Set only if True
         "prompt_template_retrieval_document": prompt_template_retrieval_document,
         "prompt_template_retrieval_query": prompt_template_retrieval_query,
+        "max_chunks_per_document": max_chunks_per_document,
     }
     print(updates)
     # Filter out None values (unset options)
