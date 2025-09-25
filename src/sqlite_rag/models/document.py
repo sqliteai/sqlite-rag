@@ -1,9 +1,8 @@
 import hashlib
 import re
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
-
-from attr import dataclass
 
 from .chunk import Chunk
 
@@ -15,11 +14,11 @@ class Document:
     id: str | None = None
     content: str = ""
     uri: str | None = None
-    metadata: dict = {}
+    metadata: dict = field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-    chunks: list["Chunk"] = []
+    chunks: list["Chunk"] = field(default_factory=list)
 
     def hash(self) -> str:
         """Generate a hash for the document content using SHA-3 for maximum collision resistance"""

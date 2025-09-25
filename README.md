@@ -2,7 +2,7 @@
 
 # SQLite RAG
 
-[![Run Tests](https://github.com/sqliteai/sqlite-rag/actions/workflows/test.yaml/badge.svg?branch=main&event=release)](https://github.com/sqliteai/sqlite-rag/actions/workflows/test.yaml)
+[![Run Tests](https://github.com/sqliteai/sqlite-rag/actions/workflows/test.yaml/badge.svg)](https://github.com/sqliteai/sqlite-rag/actions/workflows/test.yaml)
 [![codecov](https://codecov.io/github/sqliteai/sqlite-rag/graph/badge.svg?token=30KYPY7864)](https://codecov.io/github/sqliteai/sqlite-rag)
 ![PyPI - Version](https://img.shields.io/pypi/v/sqlite-rag?link=https%3A%2F%2Fpypi.org%2Fproject%2Fsqlite-rag%2F)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/sqlite-rag?link=https%3A%2F%2Fpypi.org%2Fproject%2Fsqlite-rag)
