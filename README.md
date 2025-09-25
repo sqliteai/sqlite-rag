@@ -21,7 +21,7 @@ A hybrid search engine built on SQLite with [SQLite AI](https://github.com/sqlit
 ## Installation
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install sqlite-rag
 ```
@@ -114,11 +114,11 @@ git clone https://github.com/sqliteai/sqlite-rag.git
 cd sqlite-rag
 
 # Create virtual environment
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install in development mode
-pip install -e .[dev]
+pip install -e '.[dev]'
 ```
 ## How It Works
 
