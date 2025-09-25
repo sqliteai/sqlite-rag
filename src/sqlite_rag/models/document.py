@@ -55,11 +55,11 @@ class Document:
         if match:
             return match.group(1).strip()
 
-        # Fallback: first non-empty line
+        # Fallback: first non-empty line with at least one word
         if fallback_first_line:
             for line in self.content.splitlines():
                 line = line.strip()
-                if line:
+                if line and re.search(r"\w", line):
                     return line[: self.GENERATED_TITLE_MAX_CHARS]
 
         return None
