@@ -148,7 +148,7 @@ class TestSQLiteRag:
 
     def test_add_documents_with_generated_title(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as doc1:
-            doc1.write("# Title 1\nThis is the second test document.")
+            doc1.write("# Title 1\nThis is the first test document.")
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as doc2:
             doc2.write("# Title 2\nThis is the second test document.")
 
