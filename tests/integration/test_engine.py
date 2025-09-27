@@ -3,8 +3,6 @@ import string
 
 import pytest
 
-from sqlite_rag.models.chunk import Chunk
-
 
 class TestEngine:
     @pytest.mark.slow
@@ -20,8 +18,8 @@ class TestEngine:
         result_chunks = {}
         for i in range(1000):
             try:
-                chunk = engine.generate_embeddings([Chunk(content=random_string())])
-                result_chunks[chunk[0].embedding.hex()] = chunk[0]
+                embedding = engine.generate_embedding(random_string())
+                result_chunks[embedding.hex()] = embedding
                 assert len(result_chunks) == i + 1
             except Exception as e:
                 pytest.fail(f"Embedding generation failed on chunk {i}: {e}")

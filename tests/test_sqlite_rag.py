@@ -139,7 +139,39 @@ class TestSQLiteRag:
         doc = cursor.fetchone()
         assert doc
         assert doc[0] == "This is a test document with metadata."
-        assert doc[1] == json.dumps(metadata)
+        assert doc[1] == json.dumps(
+            {
+                **metadata,
+                "generated": {"title": "This is a test document with metadata."},
+            }
+        )
+
+    def test_add_documents_with_generated_title(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as doc1:
+            doc1.write("# Title 1\nThis is the first test document.")
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as doc2:
+            doc2.write("# Title 2\nThis is the second test document.")
+
+        doc3 = "# Title 3\nThis is the third test document."
+        doc4 = "# Title 4\nThis is the fourth test document."
+
+        rag = SQLiteRag.create(db_path=":memory:")
+
+        rag.add(doc1.name)
+        rag.add(doc2.name)
+        rag.add_text(doc3)
+        rag.add_text(doc4)
+
+        conn = rag._conn
+        cursor = conn.execute("SELECT metadata FROM documents")
+        docs = cursor.fetchall()
+        assert len(docs) == 4
+
+        titles = [json.loads(doc[0]).get("generated", {}).get("title") for doc in docs]
+        assert "Title 1" in titles
+        assert "Title 2" in titles
+        assert "Title 3" in titles
+        assert "Title 4" in titles
 
     def test_add_empty_file(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
@@ -229,7 +261,14 @@ class TestSQLiteRag:
         assert doc
         assert doc[0] == "This is a test document content with metadata."
         assert doc[1] == "test_doc_with_metadata.txt"
-        assert doc[2] == json.dumps(metadata)
+        assert doc[2] == json.dumps(
+            {
+                **metadata,
+                "generated": {
+                    "title": "This is a test document content with metadata."
+                },
+            }
+        )
 
     def test_list_documents(self):
         rag = SQLiteRag.create(":memory:")

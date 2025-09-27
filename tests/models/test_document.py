@@ -45,3 +45,11 @@ class TestDocument:
         assert (
             doc.extract_document_title(fallback_first_line=fallback) == expected_title
         )
+
+    def test_extract_document_title_with_a_word(self):
+        content = "---\n    \n  Leading spaces line with a word."
+        doc = Document(content=content, metadata={})
+        assert (
+            doc.extract_document_title(fallback_first_line=True)
+            == "Leading spaces line with a word."
+        )

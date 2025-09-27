@@ -103,7 +103,7 @@ class SQLiteRag:
                     if use_relative_paths
                     else str(file_path.absolute())
                 )
-                document = Document(content=content, uri=uri, metadata=metadata)
+                document = Document(content=content, uri=uri, metadata=metadata.copy())
 
                 exists = self._repository.document_exists_by_hash(document.hash())
                 if exists:
@@ -132,7 +132,7 @@ class SQLiteRag:
         """Add a text content into the database"""
         self._ensure_initialized()
 
-        document = Document(content=text, uri=uri, metadata=metadata)
+        document = Document(content=text, uri=uri, metadata=metadata.copy())
 
         self._engine.create_new_context()
         document = self._engine.process(document)

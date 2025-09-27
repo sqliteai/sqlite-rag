@@ -17,7 +17,6 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "attrs",
     "typer",
     "huggingface_hub[hf_transfer]",
     "markitdown[docx]",

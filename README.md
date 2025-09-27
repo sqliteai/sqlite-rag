@@ -2,12 +2,13 @@
 
 # SQLite RAG
 
-[![Run Tests](https://github.com/sqliteai/sqlite-rag/actions/workflows/test.yaml/badge.svg?branch=main&event=release)](https://github.com/sqliteai/sqlite-rag/actions/workflows/test.yaml)
+[![Run Tests](https://github.com/sqliteai/sqlite-rag/actions/workflows/test.yaml/badge.svg)](https://github.com/sqliteai/sqlite-rag/actions/workflows/test.yaml)
 [![codecov](https://codecov.io/github/sqliteai/sqlite-rag/graph/badge.svg?token=30KYPY7864)](https://codecov.io/github/sqliteai/sqlite-rag)
 ![PyPI - Version](https://img.shields.io/pypi/v/sqlite-rag?link=https%3A%2F%2Fpypi.org%2Fproject%2Fsqlite-rag%2F)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/sqlite-rag?link=https%3A%2F%2Fpypi.org%2Fproject%2Fsqlite-rag)
 
-A hybrid search engine built on SQLite with [SQLite AI](https://github.com/sqliteai/sqlite-ai) and [SQLite Vector](https://github.com/sqliteai/sqlite-vector) extensions. SQLite RAG combines vector similarity search with full-text search ([FTS5](https://www.sqlite.org/fts5.html) extension) using Reciprocal Rank Fusion (RRF) for enhanced document retrieval.
+A hybrid search engine built on SQLite with [SQLite AI](https://github.com/sqliteai/sqlite-ai) and [SQLite Vector](https://github.com/sqliteai/sqlite-vector) extensions.
+SQLite RAG combines vector similarity search with full-text search ([FTS5](https://www.sqlite.org/fts5.html) extension) using Reciprocal Rank Fusion (RRF) for enhanced document retrieval.
 
 ## Features
 
@@ -19,6 +20,13 @@ A hybrid search engine built on SQLite with [SQLite AI](https://github.com/sqlit
 - **Flexible Configuration**: Customizable embedding models, search weights, and chunking parameters
 
 ## Installation
+
+### Prerequisites
+
+SQLite RAG requires SQLite with _extension loading_ support.
+If you encounter extension loading issues (e.g., `'sqlite3.Connection' object has no attribute 'enable_load_extension'`), follow the setup guides for [macOS](https://github.com/sqliteai/sqlite-extensions-guide/blob/main/platforms/macos.md#python-on-macos) or [Windows](https://github.com/sqliteai/sqlite-extensions-guide/blob/main/platforms/windows.md#using-sqlite-with-python).
+
+### Install SQLite RAG
 
 ```bash
 python3 -m venv .venv
