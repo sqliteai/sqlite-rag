@@ -3,6 +3,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Optional
 
+from sqlite_rag.extractor import Extractor
 from sqlite_rag.logger import Logger
 from sqlite_rag.models.document_result import DocumentResult
 
@@ -25,6 +26,7 @@ class SQLiteRag:
         self._repository = Repository(self._conn, settings)
         self._chunker = Chunker(self._conn, settings)
         self._engine = Engine(self._conn, settings, chunker=self._chunker)
+        self._extractor = Extractor()
 
         self.ready = False
 
@@ -103,7 +105,16 @@ class SQLiteRag:
                     if use_relative_paths
                     else str(file_path.absolute())
                 )
-                document = Document(content=content, uri=uri, metadata=metadata.copy())
+
+                content, file_metadata = self._extractor.extract_metadata(
+                    content, file_path
+                )
+
+                merged_metadata = metadata.copy()
+                if file_metadata:
+                    merged_metadata["extracted"] = file_metadata
+
+                document = Document(content=content, uri=uri, metadata=merged_metadata)
 
                 exists = self._repository.document_exists_by_hash(document.hash())
                 if exists:
@@ -187,7 +198,21 @@ class SQLiteRag:
                     content = FileReader.parse_file(
                         Path(doc.uri), self._settings.max_document_size_bytes
                     )
+
+                    if not content:
+                        self._logger.warning(
+                            f"{i+1}/{total_docs} Skipping empty file: {doc.uri}"
+                        )
+                        not_found += 1
+                        continue
+
+                    content, file_metadata = self._extractor.extract_metadata(
+                        content, Path(doc.uri)
+                    )
+
                     doc.content = content
+                    if file_metadata:
+                        doc.metadata["extracted"] = file_metadata
 
                     self._repository.remove_document(doc_id)
                     processed_doc = self._engine.process(doc)

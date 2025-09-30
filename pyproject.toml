@@ -25,6 +25,7 @@ dependencies = [
     "markitdown[pptx]",
     "markitdown[xls]",
     "markitdown[xlsx]",
+    "python-frontmatter",
     "prompt-toolkit",
     "sqlite-ai",
     "sqliteai-vector"
@@ -34,7 +35,7 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-mock",
-    "pytest-cov==6.3.0",
+    "pytest-cov",
     "black",
     "flake8",
     "bandit",
