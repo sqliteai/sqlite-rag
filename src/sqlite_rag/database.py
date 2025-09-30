@@ -29,7 +29,7 @@ class Database:
                 )
             )
             conn.load_extension(
-                str(importlib.resources.files("sqlite-vector.binaries") / "vector")
+                str(importlib.resources.files("sqlite_vector.binaries") / "vector")
             )
         except sqlite3.OperationalError as e:
             raise RuntimeError(
