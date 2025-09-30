@@ -47,6 +47,7 @@ class FileReader:
 
     @staticmethod
     def parse_file(path: Path, max_document_size_bytes: Optional[int] = None) -> str:
+        """Read the file and convert into Markdown text."""
         try:
             converter = MarkItDown()
             text = converter.convert(

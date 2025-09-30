@@ -9,7 +9,7 @@ from sqlite_rag import SQLiteRag
 from sqlite_rag.settings import Settings
 
 
-class TestSQLiteRag:
+class TestSQLiteRagAdd:
     def test_add_simple_text_file(self):
         #  test file
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
@@ -270,6 +270,40 @@ class TestSQLiteRag:
             }
         )
 
+    def test_add_markdown_with_frontmatter(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            f.write(
+                """---
+title: Sample Document
+author: Test Author
+---
+# Heading 1
+This is a sample markdown document.
+"""
+            )
+            temp_file_path = f.name
+
+        rag = SQLiteRag.create(":memory:")
+
+        rag.add(temp_file_path)
+
+        conn = rag._conn
+        cursor = conn.execute("SELECT content, metadata FROM documents")
+        doc = cursor.fetchone()
+
+        assert doc
+        assert "# Heading 1" in doc[0]
+        assert "This is a sample markdown document." in doc[0]
+
+        metadata = json.loads(doc[1])
+        assert "extracted" in metadata
+        assert "title" in metadata["extracted"]
+        assert metadata["extracted"]["title"] == "Sample Document"
+        assert "author" in metadata["extracted"]
+        assert metadata["extracted"]["author"] == "Test Author"
+
+
+class TestSQLiteRag:
     def test_list_documents(self):
         rag = SQLiteRag.create(":memory:")
 
@@ -545,6 +579,48 @@ class TestSQLiteRag:
         documents = rag.list_documents()
         assert len(documents) == 1
 
+    def test_rebuild_with_md_frontmatter(self):
+        """Test rebuild with markdown file that have frontmatter"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f1:
+            f1.write(
+                """---
+title: Document 1
+author: Author 1
+---
+# Heading 1
+Content of document 1.
+"""
+            )
+            file1_path = f1.name
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f2:
+            f2.write(
+                """# Heading 2
+
+                Content of document 2.
+                """
+            )
+            file2_path = f2.name
+
+        rag = SQLiteRag.create(":memory:")
+        rag.add(file1_path)
+        rag.add(file2_path)
+
+        result = rag.rebuild()
+
+        assert result["total"] == 2
+        assert result["reprocessed"] == 2
+        assert result["not_found"] == 0
+        assert result["removed"] == 0
+
+        documents = rag.list_documents()
+        assert len(documents) == 2
+
+        titles = [
+            doc.metadata.get("extracted", {}).get("title", "") for doc in documents
+        ]
+        assert "Document 1" in titles
+        assert "Document 2" not in titles  # No frontmatter title
+
     def test_reset_database(self):
         temp_file_path = os.path.join(tempfile.mkdtemp(), "something")
 
@@ -621,7 +697,7 @@ class TestSQLiteRagSearch:
         sample_files = list(samples_dir.glob("*.txt"))
 
         for sample_file in sample_files:
-            file_content = sample_file.read_text(encoding="utf-8")
+            file_content = sample_file.read_text(encoding="utf-8").rstrip("\n")
 
             # Search for the exact content
             results = rag.search(file_content, top_k=2)
