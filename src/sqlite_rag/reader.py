@@ -46,7 +46,13 @@ class FileReader:
         only_extensions: Optional[list[str]] = None,
         exclude_extensions: Optional[list[str]] = None,
     ) -> bool:
-        """Check if the file extension is supported"""
+        """Check if the file extension is supported.
+
+        Parameters:
+            path (Path): The file path to check.
+            only_extensions (Optional[list[str]]): If provided, only files with these extensions are considered.
+            exclude_extensions (Optional[list[str]]): If provided, files with these extensions are excluded.
+        """
         extension = path.suffix.lower().lstrip(".")
 
         supported_extensions = set(FileReader.extensions)
