@@ -257,9 +257,15 @@ def add(
     rag_context = ctx.obj["rag_context"]
     start_time = time.time()
 
-    # Parse extension lists
-    only_list = only_extensions.split(",") if only_extensions else None
-    exclude_list = exclude_extensions.split(",") if exclude_extensions else None
+    # Parse and normalize extension lists
+    only_list = (
+        [e.strip().lstrip(".").lower() for e in only_extensions.split(",") if e.strip()]
+        if only_extensions else None
+    )
+    exclude_list = (
+        [e.strip().lstrip(".").lower() for e in exclude_extensions.split(",") if e.strip()]
+        if exclude_extensions else None
+    )
 
     rag = rag_context.get_rag()
     rag.add(
