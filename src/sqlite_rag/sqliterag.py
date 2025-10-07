@@ -72,8 +72,19 @@ class SQLiteRag:
         recursive: bool = False,
         use_relative_paths: bool = False,
         metadata: dict = {},
+        only_extensions: Optional[list[str]] = None,
+        exclude_extensions: Optional[list[str]] = None,
     ) -> int:
-        """Add the file content into the database"""
+        """Add the file content into the database
+
+        Args:
+            path: File or directory path to add
+            recursive: Recursively add files in directories
+            use_relative_paths: Store relative paths instead of absolute paths
+            metadata: Metadata to associate with documents
+            only_extensions: Only process these file extensions from the supported list (e.g. ['py', 'js'])
+            exclude_extensions: Skip these file extensions (e.g. ['py', 'js'])
+        """
         self._ensure_initialized()
 
         if not Path(path).exists():
@@ -81,7 +92,12 @@ class SQLiteRag:
 
         parent = Path(path).parent
 
-        files_to_process = FileReader.collect_files(Path(path), recursive=recursive)
+        files_to_process = FileReader.collect_files(
+            Path(path),
+            recursive=recursive,
+            only_extensions=only_extensions,
+            exclude_extensions=exclude_extensions,
+        )
 
         self._engine.create_new_context()
 

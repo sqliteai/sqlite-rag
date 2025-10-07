@@ -302,6 +302,116 @@ This is a sample markdown document.
         assert "author" in metadata["extracted"]
         assert metadata["extracted"]["author"] == "Test Author"
 
+    def test_add_with_only_extensions(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create files with supported extensions
+            py_file = Path(temp_dir) / "script.py"
+            js_file = Path(temp_dir) / "app.js"
+            txt_file = Path(temp_dir) / "readme.txt"
+            md_file = Path(temp_dir) / "docs.md"
+
+            py_file.write_text("print('hello world')")
+            js_file.write_text("console.log('hello world')")
+            txt_file.write_text("This is a readme file")
+            md_file.write_text("# Documentation")
+
+            rag = SQLiteRag.create(":memory:")
+
+            # Add with only_extensions - only process py and js files
+            processed = rag.add(temp_dir, only_extensions=["py", "js"])
+
+            assert processed == 2  # Only py and js files should be processed
+
+            conn = rag._conn
+            cursor = conn.execute("SELECT uri FROM documents ORDER BY uri")
+            docs = cursor.fetchall()
+            assert len(docs) == 2
+            uris = [doc[0] for doc in docs]
+            assert any("script.py" in uri for uri in uris)
+            assert any("app.js" in uri for uri in uris)
+            assert not any("readme.txt" in uri for uri in uris)
+            assert not any("docs.md" in uri for uri in uris)
+
+    def test_add_with_exclude_extensions(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            txt_file = Path(temp_dir) / "document.txt"
+            md_file = Path(temp_dir) / "document.md"
+            py_file = Path(temp_dir) / "script.py"
+
+            txt_file.write_text("Text document content")
+            md_file.write_text("# Markdown document")
+            py_file.write_text("print('hello world')")
+
+            rag = SQLiteRag.create(":memory:")
+
+            # Add with exclude_extensions
+            processed = rag.add(temp_dir, exclude_extensions=["py"])
+
+            assert processed == 2  # Only txt and md files should be processed
+
+            conn = rag._conn
+            cursor = conn.execute("SELECT uri FROM documents ORDER BY uri")
+            docs = cursor.fetchall()
+            assert len(docs) == 2
+            # Should not contain the py file
+            uris = [doc[0] for doc in docs]
+            assert any("document.txt" in uri for uri in uris)
+            assert any("document.md" in uri for uri in uris)
+            assert not any("script.py" in uri for uri in uris)
+
+    def test_add_with_only_and_exclude_extensions(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            py_file = Path(temp_dir) / "script.py"
+            txt_file = Path(temp_dir) / "document.txt"
+            md_file = Path(temp_dir) / "readme.md"
+            js_file = Path(temp_dir) / "app.js"
+
+            py_file.write_text("print('hello world')")
+            txt_file.write_text("Text document")
+            md_file.write_text("# Markdown document")
+            js_file.write_text("console.log('hello')")
+
+            rag = SQLiteRag.create(":memory:")
+
+            # Only .py and .txt files but exclude .py files
+            processed = rag.add(
+                temp_dir, only_extensions=["py", "txt"], exclude_extensions=["py"]
+            )
+
+            assert (
+                processed == 1
+            )  # Only txt file (py excluded, md not in only list, js not in only list)
+
+            conn = rag._conn
+            cursor = conn.execute("SELECT uri FROM documents ORDER BY uri")
+            docs = cursor.fetchall()
+            uris = [doc[0] for doc in docs]
+            assert any("document.txt" in uri for uri in uris)
+            assert not any("script.py" in uri for uri in uris)  # Excluded
+            assert not any("readme.md" in uri for uri in uris)  # Not in only list
+            assert not any("app.js" in uri for uri in uris)  # Not in only list
+
+    def test_add_single_file_with_only_extensions(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+            f.write("print('hello world')")
+            temp_file_path = f.name
+
+        rag = SQLiteRag.create(":memory:")
+
+        # With only_extensions=['txt'], should not be processed (py not in list)
+        processed = rag.add(temp_file_path, only_extensions=["txt"])
+        assert processed == 0
+
+        # With only_extensions=['py'], should be processed
+        processed = rag.add(temp_file_path, only_extensions=["py"])
+        assert processed == 1
+
+        conn = rag._conn
+        cursor = conn.execute("SELECT content FROM documents")
+        doc = cursor.fetchone()
+        assert doc
+        assert "print('hello world')" in doc[0]
+
 
 class TestSQLiteRag:
     def test_list_documents(self):
