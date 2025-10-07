@@ -96,7 +96,12 @@ def main(
 def show_settings(ctx: typer.Context):
     """Show current settings"""
     rag_context = ctx.obj["rag_context"]
-    rag = rag_context.get_rag(require_existing=True)
+    try:
+        rag = rag_context.get_rag(require_existing=True)
+    except FileNotFoundError:
+        typer.echo("Database not found. No settings available.")
+        raise typer.Exit(1)
+
     current_settings = rag.get_settings()
 
     typer.echo("Current settings:")
@@ -242,10 +247,35 @@ def add(
         help="Optional metadata in JSON format to associate with the document",
         metavar="JSON",
     ),
+    only_extensions: Optional[str] = typer.Option(
+        None,
+        "--only",
+        help="Only process these file extensions from supported list (comma-separated, e.g. 'py,js')",
+    ),
+    exclude_extensions: Optional[str] = typer.Option(
+        None,
+        "--exclude",
+        help="File extensions to exclude (comma-separated, e.g. 'py,js')",
+    ),
 ):
     """Add a file path to the database"""
     rag_context = ctx.obj["rag_context"]
     start_time = time.time()
+
+    only_list = (
+        [e.strip().lstrip(".").lower() for e in only_extensions.split(",") if e.strip()]
+        if only_extensions
+        else None
+    )
+    exclude_list = (
+        [
+            e.strip().lstrip(".").lower()
+            for e in exclude_extensions.split(",")
+            if e.strip()
+        ]
+        if exclude_extensions
+        else None
+    )
 
     rag = rag_context.get_rag()
     rag.add(
@@ -253,6 +283,8 @@ def add(
         recursive=recursive,
         use_relative_paths=use_relative_paths,
         metadata=json.loads(metadata or "{}"),
+        only_extensions=only_list,
+        exclude_extensions=exclude_list,
     )
 
     elapsed_time = time.time() - start_time

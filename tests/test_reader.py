@@ -62,13 +62,102 @@ class TestFileReader:
             assert file2 in files
 
     def test_is_supported(self):
-        unsupported_extensions = [".exe", ".bin", ".jpg", ".png"]
+        unsupported_extensions = ["exe", "bin", "jpg", "png"]
 
         for ext in FileReader.extensions:
-            assert FileReader.is_supported(Path(f"test{ext}"))
+            assert FileReader.is_supported(Path(f"test.{ext}"))
 
         for ext in unsupported_extensions:
-            assert not FileReader.is_supported(Path(f"test{ext}"))
+            assert not FileReader.is_supported(Path(f"test.{ext}"))
+
+    def test_is_supported_with_only_extensions(self):
+        """Test is_supported with only_extensions parameter"""
+        # Test with only_extensions - should only allow specified extensions
+        assert FileReader.is_supported(Path("test.py"), only_extensions=["py", "js"])
+        assert FileReader.is_supported(Path("test.js"), only_extensions=["py", "js"])
+        assert not FileReader.is_supported(
+            Path("test.txt"), only_extensions=["py", "js"]
+        )
+        assert not FileReader.is_supported(
+            Path("test.md"), only_extensions=["py", "js"]
+        )
+
+        # Test with dots in extensions (should be normalized)
+        assert FileReader.is_supported(Path("test.py"), only_extensions=[".py", ".js"])
+        assert FileReader.is_supported(Path("test.js"), only_extensions=[".py", ".js"])
+
+        # Test case insensitive
+        assert FileReader.is_supported(Path("test.py"), only_extensions=["PY", "JS"])
+        assert FileReader.is_supported(Path("test.JS"), only_extensions=["py", "js"])
+
+    def test_is_supported_with_exclude_extensions(self):
+        """Test is_supported with exclude_extensions parameter"""
+        # Test basic exclusion - py files should be excluded
+        assert not FileReader.is_supported(Path("test.py"), exclude_extensions=["py"])
+        assert FileReader.is_supported(Path("test.js"), exclude_extensions=["py"])
+        assert FileReader.is_supported(Path("test.txt"), exclude_extensions=["py"])
+
+        # Test with dots in extensions (should be normalized)
+        assert not FileReader.is_supported(Path("test.py"), exclude_extensions=[".py"])
+        assert FileReader.is_supported(Path("test.js"), exclude_extensions=[".py"])
+
+        # Test case insensitive
+        assert not FileReader.is_supported(Path("test.py"), exclude_extensions=["PY"])
+        assert not FileReader.is_supported(Path("test.PY"), exclude_extensions=["py"])
+
+        # Test multiple exclusions
+        assert not FileReader.is_supported(
+            Path("test.py"), exclude_extensions=["py", "js"]
+        )
+        assert not FileReader.is_supported(
+            Path("test.js"), exclude_extensions=["py", "js"]
+        )
+        assert FileReader.is_supported(
+            Path("test.txt"), exclude_extensions=["py", "js"]
+        )
+
+    def test_is_supported_with_only_and_exclude_extensions(self):
+        """Test is_supported with both only_extensions and exclude_extensions"""
+        # Include py and js, but exclude py - should only allow js
+        assert not FileReader.is_supported(
+            Path("test.py"), only_extensions=["py", "js"], exclude_extensions=["py"]
+        )
+        assert FileReader.is_supported(
+            Path("test.js"), only_extensions=["py", "js"], exclude_extensions=["py"]
+        )
+        assert not FileReader.is_supported(
+            Path("test.txt"), only_extensions=["py", "js"], exclude_extensions=["py"]
+        )
+
+        # Include py, txt, md, but exclude md - should only allow py and txt
+        assert FileReader.is_supported(
+            Path("test.py"),
+            only_extensions=["py", "txt", "md"],
+            exclude_extensions=["md"],
+        )
+        assert FileReader.is_supported(
+            Path("test.txt"),
+            only_extensions=["py", "txt", "md"],
+            exclude_extensions=["md"],
+        )
+        assert not FileReader.is_supported(
+            Path("test.md"),
+            only_extensions=["py", "txt", "md"],
+            exclude_extensions=["md"],
+        )
+        assert not FileReader.is_supported(
+            Path("test.js"),
+            only_extensions=["py", "txt", "md"],
+            exclude_extensions=["md"],
+        )
+
+    def test_is_supported_with_unsupported_extensions_in_only(self):
+        """Test that only_extensions can't add unsupported extensions"""
+        # .exe is not in FileReader.extensions, so should not be supported even if in only_extensions
+        assert not FileReader.is_supported(
+            Path("test.exe"), only_extensions=["exe", "py"]
+        )
+        assert FileReader.is_supported(Path("test.py"), only_extensions=["exe", "py"])
 
     def test_parse_html_into_markdown(self):
         with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as f:
