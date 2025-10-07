@@ -96,7 +96,12 @@ def main(
 def show_settings(ctx: typer.Context):
     """Show current settings"""
     rag_context = ctx.obj["rag_context"]
-    rag = rag_context.get_rag(require_existing=True)
+    try:
+        rag = rag_context.get_rag(require_existing=True)
+    except FileNotFoundError:
+        typer.echo("Database not found. No settings available.")
+        raise typer.Exit(1)
+
     current_settings = rag.get_settings()
 
     typer.echo("Current settings:")
