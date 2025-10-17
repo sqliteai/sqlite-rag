@@ -1,10 +1,12 @@
 import json
-import re
 import sqlite3
 from pathlib import Path
+from typing import List
 
 from sqlite_rag.logger import Logger
 from sqlite_rag.models.document_result import DocumentResult
+from sqlite_rag.models.sentence_result import SentenceResult
+from sqlite_rag.sentence_splitter import SentenceSplitter
 
 from .chunker import Chunker
 from .models.document import Document
@@ -15,10 +17,17 @@ class Engine:
     # Considered a good default to normilize the score for RRF
     DEFAULT_RRF_K = 60
 
-    def __init__(self, conn: sqlite3.Connection, settings: Settings, chunker: Chunker):
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        settings: Settings,
+        chunker: Chunker,
+        sentence_chunker: SentenceSplitter,
+    ):
         self._conn = conn
         self._settings = settings
         self._chunker = chunker
+        self._sentence_chunker = sentence_chunker
         self._logger = Logger()
 
     def load_model(self):
@@ -30,7 +39,7 @@ class Engine:
 
         self._conn.execute(
             "SELECT llm_model_load(?, ?);",
-            (self._settings.model_path, self._settings.model_options),
+            (self._settings.model_path, self._settings.other_model_options),
         )
 
     def process(self, document: Document) -> Document:
@@ -45,6 +54,11 @@ class Engine:
         for chunk in chunks:
             chunk.title = document.get_title()
             chunk.embedding = self.generate_embedding(chunk.get_embedding_text())
+
+            sentences = self._sentence_chunker.split(chunk)
+            for sentence in sentences:
+                sentence.embedding = self.generate_embedding(sentence.content)
+            chunk.sentences = sentences
 
         document.chunks = chunks
 
@@ -72,6 +86,7 @@ class Engine:
         cursor = self._conn.cursor()
 
         cursor.execute("SELECT vector_quantize('chunks', 'embedding');")
+        cursor.execute("SELECT vector_quantize('sentences', 'embedding');")
 
         self._conn.commit()
         self._logger.debug("Quantization completed.")
@@ -81,21 +96,25 @@ class Engine:
         cursor = self._conn.cursor()
 
         cursor.execute("SELECT vector_quantize_preload('chunks', 'embedding');")
+        cursor.execute("SELECT vector_quantize_preload('sentences', 'embedding');")
 
     def quantize_cleanup(self) -> None:
         """Clean up internal structures related to a previously quantized table/column."""
         cursor = self._conn.cursor()
 
         cursor.execute("SELECT vector_quantize_cleanup('chunks', 'embedding');")
+        cursor.execute("SELECT vector_quantize_cleanup('sentences', 'embedding');")
 
         self._conn.commit()
 
     def create_new_context(self) -> None:
-        """"""
+        """Create a new LLM context with optional runtime overrides."""
         cursor = self._conn.cursor()
+        context_options = self._settings.get_embeddings_context_options()
 
         cursor.execute(
-            "SELECT llm_context_create(?);", (self._settings.model_context_options,)
+            "SELECT llm_context_create(?);",
+            (context_options,),
         )
 
     def free_context(self) -> None:
@@ -104,13 +123,11 @@ class Engine:
 
         cursor.execute("SELECT llm_context_free();")
 
-    def search(self, query: str, top_k: int = 10) -> list[DocumentResult]:
+    def search(
+        self, semantic_query: str, fts_query, top_k: int = 10
+    ) -> list[DocumentResult]:
         """Semantic search and full-text search sorted with Reciprocal Rank Fusion."""
-        query_embedding = self.generate_embedding(query)
-
-        # Clean up and split into words
-        # '*' is used to match while typing
-        query = " ".join(re.findall(r"\b\w+\b", query.lower())) + "*"
+        query_embedding = self.generate_embedding(semantic_query)
 
         vector_scan_type = (
             "vector_quantize_scan"
@@ -119,8 +136,7 @@ class Engine:
         )
 
         cursor = self._conn.cursor()
-        # TODO: understand how to sort results depending on the distance metric
-        # Eg, for cosine distance, higher is better (closer to 1)
+
         cursor.execute(
             f"""
             -- sqlite-vector KNN vector search results
@@ -163,6 +179,7 @@ class Engine:
                 documents.uri,
                 documents.content as document_content,
                 documents.metadata,
+                chunks.id AS chunk_id,
                 chunks.content AS snippet,
                 vec_rank,
                 fts_rank,
@@ -176,7 +193,7 @@ class Engine:
             ;
             """,  # nosec B608
             {
-                "query": query,
+                "query": fts_query,
                 "query_embedding": query_embedding,
                 "k": top_k,
                 "rrf_k": Engine.DEFAULT_RRF_K,
@@ -186,7 +203,7 @@ class Engine:
         )
 
         rows = cursor.fetchall()
-        return [
+        results = [
             DocumentResult(
                 document=Document(
                     id=row["id"],
@@ -194,6 +211,7 @@ class Engine:
                     content=row["document_content"],
                     metadata=json.loads(row["metadata"]) if row["metadata"] else {},
                 ),
+                chunk_id=row["chunk_id"],
                 snippet=row["snippet"],
                 vec_rank=row["vec_rank"],
                 fts_rank=row["fts_rank"],
@@ -203,6 +221,72 @@ class Engine:
             )
             for row in rows
         ]
+
+        return results
+
+    def search_sentences(
+        self, query: str, chunk_id: int, k: int
+    ) -> List[SentenceResult]:
+        query_embedding = self.generate_embedding(query)
+
+        vector_scan_type = (
+            "vector_quantize_scan_stream"
+            if self._settings.quantize_scan
+            else "vector_full_scan_stream"
+        )
+
+        cursor = self._conn.cursor()
+
+        cursor.execute(
+            f"""
+            WITH vec_matches AS (
+                SELECT
+                    v.rowid AS sentence_id,
+                    row_number() OVER (ORDER BY v.distance) AS rank_number,
+                    v.distance,
+                    sentences.content as sentence_content,
+                    sentences.sequence as sentence_sequence,
+                    sentences.start_offset as sentence_start_offset,
+                    sentences.end_offset as sentence_end_offset
+                FROM {vector_scan_type}('sentences', 'embedding', :query_embedding) AS v
+                    JOIN sentences ON sentences.rowid = v.rowid
+                WHERE sentences.chunk_id = :chunk_id
+                LIMIT :k
+            )
+            SELECT
+                sentence_id,
+                sentence_content,
+                sentence_sequence,
+                sentence_start_offset,
+                sentence_end_offset,
+                rank_number,
+                distance
+            FROM vec_matches
+            ORDER BY rank_number ASC
+            """,  # nosec B608
+            {
+                "query_embedding": query_embedding,
+                "k": k,
+                "chunk_id": chunk_id,
+            },
+        )
+
+        rows = cursor.fetchall()
+        sentences = []
+        for row in rows:
+            sentences.append(
+                SentenceResult(
+                    id=row["sentence_id"],
+                    chunk_id=chunk_id,
+                    sequence=row["sentence_sequence"],
+                    rank=row["rank_number"],
+                    distance=row["distance"],
+                    start_offset=row["sentence_start_offset"],
+                    end_offset=row["sentence_end_offset"],
+                )
+            )
+
+        return sentences[:k]
 
     def versions(self) -> dict:
         """Get versions of the loaded extensions."""

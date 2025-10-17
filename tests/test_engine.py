@@ -204,6 +204,10 @@ class TestEngineSearch:
 
         assert len(results) > 0
         assert doc1_id == results[0].document.id
+        assert results[0].fts_rank
+        assert results[0].fts_rank == 1
+        assert results[0].fts_score
+        assert results[0].fts_score > 0
 
     def test_search_without_quantization(self, db_conn):
         # Arrange

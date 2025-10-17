@@ -1,3 +1,4 @@
+import re
 import sqlite3
 from dataclasses import asdict
 from pathlib import Path
@@ -6,6 +7,7 @@ from typing import Any, Optional
 from sqlite_rag.extractor import Extractor
 from sqlite_rag.logger import Logger
 from sqlite_rag.models.document_result import DocumentResult
+from sqlite_rag.sentence_splitter import SentenceSplitter
 
 from .chunker import Chunker
 from .database import Database
@@ -25,7 +27,12 @@ class SQLiteRag:
 
         self._repository = Repository(self._conn, settings)
         self._chunker = Chunker(self._conn, settings)
-        self._engine = Engine(self._conn, settings, chunker=self._chunker)
+        self._engine = Engine(
+            self._conn,
+            settings,
+            chunker=self._chunker,
+            sentence_chunker=SentenceSplitter(),
+        )
         self._extractor = Extractor()
 
         self.ready = False
@@ -310,10 +317,25 @@ class SQLiteRag:
         if new_context:
             self._engine.create_new_context()
 
+        semantic_query = query
         if self._settings.use_prompt_templates:
-            query = self._settings.prompt_template_retrieval_query.format(content=query)
+            semantic_query = self._settings.prompt_template_retrieval_query.format(
+                content=query
+            )
 
-        return self._engine.search(query, top_k=top_k)
+        # Clean up and split into words
+        # '*' is used to match while typing
+        fts_query = " ".join(re.findall(r"\b\w+\b", query.lower())) + "*"
+
+        results = self._engine.search(semantic_query, fts_query, top_k=top_k)
+
+        # Refine chunks with top sentences
+        for result in results:
+            result.sentences = self._engine.search_sentences(
+                semantic_query, result.chunk_id, k=self._settings.top_k_sentences
+            )
+
+        return results
 
     def get_settings(self) -> dict:
         """Get settings and more useful information"""

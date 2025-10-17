@@ -32,10 +32,27 @@ class Repository:
                 "INSERT INTO chunks (document_id, content, embedding) VALUES (?, ?, ?)",
                 (document_id, chunk.content, chunk.embedding),
             )
+
+            chunk_id = cursor.lastrowid
+
             cursor.execute(
-                "INSERT INTO chunks_fts (rowid, content) VALUES (last_insert_rowid(), ?)",
-                (chunk.content,),
+                "INSERT INTO chunks_fts (rowid, content) VALUES (?, ?)",
+                (chunk_id, chunk.content),
             )
+
+            for sentence in chunk.sentences:
+                cursor.execute(
+                    "INSERT INTO sentences (id, chunk_id, content, sequence, embedding, start_offset, end_offset) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        str(uuid4()),
+                        chunk_id,
+                        sentence.content,
+                        sentence.sequence,
+                        sentence.embedding,
+                        sentence.start_offset,
+                        sentence.end_offset,
+                    ),
+                )
 
         self._conn.commit()
 

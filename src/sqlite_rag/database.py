@@ -88,6 +88,21 @@ class Database:
         """
         )
 
+        # TODO: remove sequence
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sentences (
+                id TEXT PRIMARY KEY,
+                chunk_id INTEGER,
+                content TEXT,
+                embedding BLOB,
+                sequence INTEGER,
+                start_offset INTEGER,
+                end_offset INTEGER
+            )
+            """
+        )
+
         cursor.execute(
             """
             CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(content, content='chunks', content_rowid='id');
@@ -95,9 +110,17 @@ class Database:
         )
 
         cursor.execute(
-            f"""
-            SELECT vector_init('chunks', 'embedding', 'type={settings.vector_type},dimension={settings.embedding_dim},{settings.other_vector_options}');
-        """
+            """
+            SELECT vector_init('chunks', 'embedding', ?);
+        """,
+            (settings.get_vector_init_options(),),
+        )
+        # TODO: same configuration as chunks (or different options?)
+        cursor.execute(
+            """
+            SELECT vector_init('sentences', 'embedding', ?);
+        """,
+            (settings.get_vector_init_options(),),
         )
 
         conn.commit()

@@ -18,7 +18,7 @@ class Document:
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-    chunks: list["Chunk"] = field(default_factory=list)
+    chunks: list[Chunk] = field(default_factory=list)
 
     def hash(self) -> str:
         """Generate a hash for the document content using SHA-3 for maximum collision resistance"""
