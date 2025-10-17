@@ -31,7 +31,7 @@ class SQLiteRag:
             self._conn,
             settings,
             chunker=self._chunker,
-            sentence_chunker=SentenceSplitter(),
+            sentence_splitter=SentenceSplitter(),
         )
         self._extractor = Extractor()
 
@@ -332,7 +332,7 @@ class SQLiteRag:
         # Refine chunks with top sentences
         for result in results:
             result.sentences = self._engine.search_sentences(
-                semantic_query, result.chunk_id, k=self._settings.top_k_sentences
+                semantic_query, result.chunk_id, top_k=self._settings.top_k_sentences
             )
 
         return results

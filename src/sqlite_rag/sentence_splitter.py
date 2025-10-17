@@ -10,23 +10,23 @@ class SentenceSplitter:
 
     def split(self, chunk: Chunk) -> List[Sentence]:
         """Split chunk into sentences."""
-        sentence_chunks = []
+        sentences = []
 
-        sentences = self._split_into_sentences(chunk.content)
+        sentences_text = self._split_into_sentences(chunk.content)
         start_offset = 0
         end_offset = 0
-        for sentence in sentences:
-            start_offset = chunk.content.index(sentence, end_offset)
-            end_offset = start_offset + len(sentence)
+        for sentence_text in sentences_text:
+            start_offset = chunk.content.index(sentence_text, end_offset)
+            end_offset = start_offset + len(sentence_text)
 
-            sentence_chunk = Sentence(
-                content=sentence,
+            sentence = Sentence(
+                content=sentence_text,
                 start_offset=start_offset,
                 end_offset=end_offset,
             )
-            sentence_chunks.append(sentence_chunk)
+            sentences.append(sentence)
 
-        return sentence_chunks
+        return sentences
 
     def _split_into_sentences(self, text: str) -> List[str]:
         """Split into focused segments for semantic matching."""

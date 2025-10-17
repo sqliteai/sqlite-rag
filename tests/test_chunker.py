@@ -322,9 +322,9 @@ class TestEdgeCases:
         chunker = Chunker(mock_conn, settings)
         text = "This is a test sentence that should be handled gracefully."
 
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises(ValueError) as exc_info:
             chunker.chunk(Document(content=text))
-        assert "Chunk size must be greater than chunk overlap." in str(excinfo.value)
+        assert "Chunk size must be greater than chunk overlap." in str(exc_info.value)
 
     def test_very_small_chunk_size(self, mock_conn):
         """Test with chunk_size = 1."""

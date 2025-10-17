@@ -22,12 +22,12 @@ class Engine:
         conn: sqlite3.Connection,
         settings: Settings,
         chunker: Chunker,
-        sentence_chunker: SentenceSplitter,
+        sentence_splitter: SentenceSplitter,
     ):
         self._conn = conn
         self._settings = settings
         self._chunker = chunker
-        self._sentence_chunker = sentence_chunker
+        self._sentence_splitter = sentence_splitter
         self._logger = Logger()
 
     def load_model(self):
@@ -55,7 +55,7 @@ class Engine:
             chunk.title = document.get_title()
             chunk.embedding = self.generate_embedding(chunk.get_embedding_text())
 
-            sentences = self._sentence_chunker.split(chunk)
+            sentences = self._sentence_splitter.split(chunk)
             for sentence in sentences:
                 sentence.embedding = self.generate_embedding(sentence.content)
             chunk.sentences = sentences
@@ -225,7 +225,7 @@ class Engine:
         return results
 
     def search_sentences(
-        self, query: str, chunk_id: int, k: int
+        self, query: str, chunk_id: int, top_k: int
     ) -> List[SentenceResult]:
         query_embedding = self.generate_embedding(query)
 
@@ -250,7 +250,8 @@ class Engine:
                 FROM {vector_scan_type}('sentences', 'embedding', :query_embedding) AS v
                     JOIN sentences ON sentences.rowid = v.rowid
                 WHERE sentences.chunk_id = :chunk_id
-                LIMIT :k
+                ORDER BY rank_number ASC
+                LIMIT :top_k
             )
             SELECT
                 sentence_id,
@@ -260,11 +261,10 @@ class Engine:
                 rank_number,
                 distance
             FROM vec_matches
-            ORDER BY rank_number ASC
             """,  # nosec B608
             {
                 "query_embedding": query_embedding,
-                "k": k,
+                "top_k": top_k,
                 "chunk_id": chunk_id,
             },
         )
@@ -283,7 +283,7 @@ class Engine:
                 )
             )
 
-        return sentences[:k]
+        return sentences[:top_k]
 
     def versions(self) -> dict:
         """Get versions of the loaded extensions."""

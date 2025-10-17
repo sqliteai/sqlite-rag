@@ -6,6 +6,7 @@ import pytest
 from sqlite_rag.chunker import Chunker
 from sqlite_rag.database import Database
 from sqlite_rag.engine import Engine
+from sqlite_rag.sentence_splitter import SentenceSplitter
 from sqlite_rag.settings import Settings
 
 
@@ -28,7 +29,12 @@ def db_conn():
 def engine(db_conn) -> Engine:
     conn, settings = db_conn
 
-    engine = Engine(conn, settings, chunker=Chunker(conn, settings))
+    engine = Engine(
+        conn,
+        settings,
+        chunker=Chunker(conn, settings),
+        sentence_splitter=SentenceSplitter(),
+    )
     engine.load_model()
     engine.quantize()
     engine.create_new_context()
