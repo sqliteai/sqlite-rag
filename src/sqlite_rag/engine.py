@@ -245,7 +245,6 @@ class Engine:
                     row_number() OVER (ORDER BY v.distance) AS rank_number,
                     v.distance,
                     sentences.content as sentence_content,
-                    sentences.sequence as sentence_sequence,
                     sentences.start_offset as sentence_start_offset,
                     sentences.end_offset as sentence_end_offset
                 FROM {vector_scan_type}('sentences', 'embedding', :query_embedding) AS v
@@ -256,7 +255,6 @@ class Engine:
             SELECT
                 sentence_id,
                 sentence_content,
-                sentence_sequence,
                 sentence_start_offset,
                 sentence_end_offset,
                 rank_number,
@@ -278,7 +276,6 @@ class Engine:
                 SentenceResult(
                     id=row["sentence_id"],
                     chunk_id=chunk_id,
-                    sequence=row["sentence_sequence"],
                     rank=row["rank_number"],
                     distance=row["distance"],
                     start_offset=row["sentence_start_offset"],

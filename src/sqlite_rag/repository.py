@@ -42,12 +42,11 @@ class Repository:
 
             for sentence in chunk.sentences:
                 cursor.execute(
-                    "INSERT INTO sentences (id, chunk_id, content, sequence, embedding, start_offset, end_offset) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO sentences (id, chunk_id, content, embedding, start_offset, end_offset) VALUES (?, ?, ?, ?, ?, ?)",
                     (
                         str(uuid4()),
                         chunk_id,
                         sentence.content,
-                        sentence.sequence,
                         sentence.embedding,
                         sentence.start_offset,
                         sentence.end_offset,

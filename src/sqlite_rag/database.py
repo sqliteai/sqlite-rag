@@ -96,7 +96,6 @@ class Database:
                 chunk_id INTEGER,
                 content TEXT,
                 embedding BLOB,
-                sequence INTEGER,
                 start_offset INTEGER,
                 end_offset INTEGER
             )

@@ -82,6 +82,81 @@ class SearchResultFormatter(ABC):
             uri_display = f"{icon} ...{uri[-available_width:]}"
         return uri_display
 
+    def _build_sentence_preview(
+        self,
+        chunk_content: str,
+        sentences: List[SentenceResult],
+        max_chars: int = 400,
+    ) -> str:
+        """Build preview from top 3 ranked sentences with [...] for gaps.
+
+        Args:
+            chunk_content: The full chunk text
+            sentences: List of SentenceResult objects (should already be sorted by rank)
+            max_chars: Maximum total characters for preview
+
+        Returns:
+            Preview string with top sentences and [...] separators.
+            Falls back to truncated chunk_content if sentences have no offsets.
+        """
+
+        # Take top 3 sentences (they should already be sorted by rank/distance)
+        top_sentences = sentences[:3] if sentences else []
+
+        if not top_sentences:
+            # Fallback: no sentences, return truncated chunk content
+            return chunk_content[:max_chars]
+
+        # Filter sentences that have offset information
+        sentences_with_offsets = [
+            s
+            for s in top_sentences
+            if s.start_offset is not None and s.end_offset is not None
+        ]
+
+        if not sentences_with_offsets:
+            # Fallback: sentences exist but no offset information, return truncated chunk content
+            return chunk_content[:max_chars]
+
+        # Sort by start_offset to maintain document order
+        sentences_with_offsets.sort(
+            key=lambda s: s.start_offset if s.start_offset is not None else -1
+        )
+
+        preview_parts = []
+        total_chars = 0
+        prev_end_offset = None
+
+        for sentence in sentences_with_offsets:
+            # Extract sentence text using offsets
+            sentence_text = chunk_content[
+                sentence.start_offset : sentence.end_offset
+            ].strip()
+
+            # Calculate remaining budget including potential separator
+            separator_len = len(" [...] ") if preview_parts else 0
+            remaining = max_chars - total_chars - separator_len
+
+            if remaining <= 0:
+                break
+
+            # Truncate sentence if needed
+            if len(sentence_text) > remaining:
+                sentence_text = sentence_text[: remaining - 3] + "..."
+
+            # Check if there's a gap > 10 chars from previous sentence
+            if prev_end_offset is not None and sentence.start_offset is not None:
+                gap_size = sentence.start_offset - prev_end_offset
+                if gap_size > 10:
+                    preview_parts.append("[...]")
+                    total_chars += len(" [...] ")
+
+            preview_parts.append(sentence_text)
+            total_chars += len(sentence_text)
+            prev_end_offset = sentence.end_offset
+
+        return " ".join(preview_parts)
+
 
 class BoxedFormatter(SearchResultFormatter):
     """Base class for boxed result formatters."""
@@ -100,8 +175,15 @@ class BoxedFormatter(SearchResultFormatter):
     def _format_single_result(self, doc: DocumentResult, idx: int) -> None:
         """Format a single result with box layout."""
         icon = self._get_file_icon(doc.document.uri or "")
+
+        # Use sentence-based preview if sentences are available
+        if doc.sentences:
+            snippet_text = self._build_sentence_preview(doc.snippet, doc.sentences)
+        else:
+            snippet_text = doc.snippet
+
         snippet_lines = self._clean_and_wrap_snippet(
-            doc.snippet, width=75, max_length=400
+            snippet_text, width=75, max_length=400
         )
 
         # Draw the result box header
@@ -164,33 +246,19 @@ class BoxedDebugFormatter(BoxedFormatter):
     def _should_show_debug(self) -> bool:
         return True
 
-
-class BoxedDebug2Formatter(BoxedFormatter):
-    """Debug formatter showing sentence-level details with snippet preview from top sentences."""
-
-    def _get_debug_line(self, doc: DocumentResult) -> str:
-        """Format debug metrics line."""
-        combined = (
-            f"{doc.combined_rank:.5f}" if doc.combined_rank is not None else "N/A"
-        )
-        vec_info = (
-            f"#{doc.vec_rank} ({doc.vec_distance:.6f})"
-            if doc.vec_rank is not None
-            else "N/A"
-        )
-        fts_info = (
-            f"#{doc.fts_rank} ({doc.fts_score:.6f})"
-            if doc.fts_rank is not None
-            else "N/A"
-        )
-        return f"│ Combined: {combined} │ Vector: {vec_info} │ FTS: {fts_info}"
-
-    def _should_show_debug(self) -> bool:
-        return True
-
     def _format_single_result(self, doc: DocumentResult, idx: int) -> None:
-        """Format a single result with box layout including sentence details."""
+        """Format a single result with box layout including sentence summary."""
         icon = self._get_file_icon(doc.document.uri or "")
+
+        # Use sentence-based preview if sentences are available
+        if doc.sentences:
+            snippet_text = self._build_sentence_preview(doc.snippet, doc.sentences)
+        else:
+            snippet_text = doc.snippet
+
+        snippet_lines = self._clean_and_wrap_snippet(
+            snippet_text, width=75, max_length=400
+        )
 
         # Draw the result box header
         header = f"┌─ Result #{idx} " + "─" * (67 - len(str(idx)))
@@ -213,26 +281,18 @@ class BoxedDebug2Formatter(BoxedFormatter):
                 typer.echo(debug_line)
                 typer.echo("├" + "─" * 77 + "┤")
 
-        # Display snippet preview from top sentences
+        # Display snippet preview
+        for line in snippet_lines:
+            typer.echo(f"│ {line:<75} │")
+
+        # Display sentence details if available
         if doc.sentences:
-            snippet_preview = self._build_sentence_preview(doc.snippet, doc.sentences)
-            preview_lines = self._clean_and_wrap_snippet(
-                snippet_preview, width=75, max_length=400
-            )
-
-            typer.echo(
-                "│ Preview (top 3 sentences):                                                │"
-            )
-            for line in preview_lines:
-                typer.echo(f"│ {line:<75} │")
-
             typer.echo("├" + "─" * 77 + "┤")
             typer.echo(
                 "│ Sentences:                                                                │"
             )
 
-            # Display sentences with their distances
-            for i, sentence in enumerate(doc.sentences, 1):
+            for sentence in doc.sentences[:5]:  # Show max 5 sentences
                 distance_str = (
                     f"{sentence.distance:.6f}"
                     if sentence.distance is not None
@@ -240,111 +300,32 @@ class BoxedDebug2Formatter(BoxedFormatter):
                 )
                 rank_str = f"#{sentence.rank}" if sentence.rank is not None else "N/A"
 
-                # Format sentence header
-                sentence_header = (
-                    f"│   {i}. [Rank: {rank_str}, Distance: {distance_str}]"
-                )
-                typer.echo(sentence_header.ljust(78) + " │")
-
-                # Extract sentence text using offsets from the chunk snippet
+                # Extract sentence preview (first 50 chars)
                 if (
                     sentence.start_offset is not None
                     and sentence.end_offset is not None
                 ):
                     sentence_text = doc.snippet[
                         sentence.start_offset : sentence.end_offset
-                    ]
+                    ].strip()
+                    # Truncate and clean for display
+                    sentence_preview = sentence_text.replace("\n", " ").replace(
+                        "\r", ""
+                    )
+                    if len(sentence_preview) > 50:
+                        sentence_preview = sentence_preview[:47] + "..."
                 else:
-                    sentence_text = "[No offset information available]"
+                    sentence_preview = "[No offset info]"
 
-                # Wrap and display sentence content
-                sentence_lines = self._clean_and_wrap_snippet(
-                    sentence_text, width=72, max_length=400
+                # Format sentence line
+                sentence_line = (
+                    f"│   {rank_str:>3} ({distance_str}) | {sentence_preview}"
                 )
-                for line in sentence_lines:
-                    typer.echo(f"│      {line:<72} │")
-        else:
-            # Fallback to regular snippet display if no sentences
-            snippet_lines = self._clean_and_wrap_snippet(
-                doc.snippet, width=75, max_length=400
-            )
-            for line in snippet_lines:
-                typer.echo(f"│ {line:<75} │")
+                # Pad to 78 chars and add closing border
+                typer.echo(sentence_line.ljust(78) + " │")
 
         typer.echo("└" + "─" * 77 + "┘")
         typer.echo()
-
-    def _build_sentence_preview(
-        self,
-        chunk_content: str,
-        sentences: List[SentenceResult],
-        max_chars: int = 400,
-    ) -> str:
-        """Build preview from top 3 ranked sentences with [...] for gaps.
-
-        Args:
-            chunk_content: The full chunk text
-            sentences: List of SentenceResult objects (should already be sorted by rank)
-            max_chars: Maximum total characters for preview
-
-        Returns:
-            Preview string with top sentences and [...] separators
-        """
-
-        # Take top 3 sentences (they should already be sorted by rank/distance)
-        top_sentences = sentences[:3]
-
-        if not top_sentences:
-            return chunk_content[:max_chars]
-
-        # Sort sentences by their position in the chunk (using start_offset)
-        # so we can build a preview in the order they appear
-        sentences_with_offsets = [
-            s
-            for s in top_sentences
-            if s.start_offset is not None and s.end_offset is not None
-        ]
-
-        if not sentences_with_offsets:
-            # Fallback: no offset information, return truncated chunk content
-            return chunk_content[:max_chars]
-
-        # Sort by start_offset to maintain document order
-        sentences_with_offsets.sort(key=lambda s: s.start_offset)
-
-        preview_parts = []
-        total_chars = 0
-        prev_end_offset = None
-
-        for sentence in sentences_with_offsets:
-            # Extract sentence text using offsets
-            sentence_text = chunk_content[
-                sentence.start_offset : sentence.end_offset
-            ].strip()
-
-            # Calculate remaining budget including potential separator
-            separator_len = len(" [...] ") if preview_parts else 0
-            remaining = max_chars - total_chars - separator_len
-
-            if remaining <= 0:
-                break
-
-            # Truncate sentence if needed
-            if len(sentence_text) > remaining:
-                sentence_text = sentence_text[: remaining - 3] + "..."
-
-            # Check if there's a gap > 10 chars from previous sentence
-            if prev_end_offset is not None:
-                gap_size = sentence.start_offset - prev_end_offset
-                if gap_size > 10:
-                    preview_parts.append("[...]")
-                    total_chars += len(" [...] ")
-
-            preview_parts.append(sentence_text)
-            total_chars += len(sentence_text)
-            prev_end_offset = sentence.end_offset
-
-        return " ".join(preview_parts)
 
 
 class TableDebugFormatter(SearchResultFormatter):
@@ -383,8 +364,16 @@ class TableDebugFormatter(SearchResultFormatter):
 
     def _print_table_row(self, idx: int, doc: DocumentResult) -> None:
         """Print a single table row."""
+        # Use sentence-based preview if sentences are available
+        if doc.sentences:
+            snippet = self._build_sentence_preview(
+                doc.snippet, doc.sentences, max_chars=52
+            )
+        else:
+            snippet = doc.snippet
+
         # Clean snippet display
-        snippet = doc.snippet.replace("\n", " ").replace("\r", "")
+        snippet = snippet.replace("\n", " ").replace("\r", "")
         snippet = snippet[:49] + "..." if len(snippet) > 52 else snippet
 
         # Clean URI display
@@ -409,13 +398,11 @@ class TableDebugFormatter(SearchResultFormatter):
 
 
 def get_formatter(
-    debug: bool = False, debug2: bool = False, table_view: bool = False
+    debug: bool = False, table_view: bool = False
 ) -> SearchResultFormatter:
     """Factory function to get the appropriate formatter."""
     if table_view:
         return TableDebugFormatter()
-    elif debug2:
-        return BoxedDebug2Formatter()
     elif debug:
         return BoxedDebugFormatter()
     else:

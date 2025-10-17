@@ -439,17 +439,12 @@ def reset(
 def search(
     ctx: typer.Context,
     query: str,
-    limit: int = typer.Option(10, help="Number of results to return"),
+    limit: int = typer.Option(5, help="Number of results to return"),
     debug: bool = typer.Option(
         False,
         "-d",
         "--debug",
-        help="Print extra debug information with modern formatting",
-    ),
-    debug2: bool = typer.Option(
-        False,
-        "--debug2",
-        help="Print debug format with sentence-level details and snippet context",
+        help="Print extra debug information with sentence-level details",
     ),
     peek: bool = typer.Option(
         False, "--peek", help="Print debug information using compact table format"
@@ -467,7 +462,7 @@ def search(
     results = results[:limit]
 
     # Get the appropriate formatter and display results
-    formatter = get_formatter(debug=debug, debug2=debug2, table_view=peek)
+    formatter = get_formatter(debug=debug, table_view=peek)
     formatter.format_results(results, query)
 
     typer.echo(f"{search_time:.3f} seconds")
