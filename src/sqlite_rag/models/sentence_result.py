@@ -6,6 +6,8 @@ class SentenceResult:
     id: int | None = None
     chunk_id: int | None = None
 
+    content: str = ""
+
     rank: float | None = None
     distance: float | None = None
 

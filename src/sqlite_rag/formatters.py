@@ -2,11 +2,18 @@
 """Output formatters for CLI search results."""
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List
 
 import typer
 
 from .models.document_result import DocumentResult
+
+# Display constants
+BOX_CONTENT_WIDTH = 75
+BOX_TOTAL_WIDTH = 77
+SNIPPET_MAX_LENGTH = 400
+SENTENCE_PREVIEW_LENGTH = 50
+MAX_SENTENCES_DISPLAY = 5
 
 
 class SearchResultFormatter(ABC):
@@ -40,7 +47,10 @@ class SearchResultFormatter(ABC):
         return "📄"
 
     def _clean_and_wrap_snippet(
-        self, snippet: str, width: int = 75, max_length: int = 400
+        self,
+        snippet: str,
+        width: int = BOX_CONTENT_WIDTH,
+        max_length: int = SNIPPET_MAX_LENGTH,
     ) -> List[str]:
         """Clean snippet and wrap to specified width with max length limit."""
         # Clean the snippet
@@ -69,7 +79,9 @@ class SearchResultFormatter(ABC):
 
         return lines
 
-    def _format_uri_display(self, uri: str, icon: str, max_width: int = 75) -> str:
+    def _format_uri_display(
+        self, uri: str, icon: str, max_width: int = BOX_CONTENT_WIDTH
+    ) -> str:
         """Format URI for display with icon and truncation."""
         if not uri:
             return ""
@@ -82,7 +94,15 @@ class SearchResultFormatter(ABC):
 
 
 class BoxedFormatter(SearchResultFormatter):
-    """Base class for boxed result formatters."""
+    """Boxed formatter for search results with optional debug information."""
+
+    def __init__(self, show_debug: bool = False):
+        """Initialize formatter.
+
+        Args:
+            show_debug: Whether to show debug information and sentence details
+        """
+        self.show_debug = show_debug
 
     def format_results(self, results: List[DocumentResult], query: str) -> None:
         if not results:
@@ -98,56 +118,39 @@ class BoxedFormatter(SearchResultFormatter):
     def _format_single_result(self, doc: DocumentResult, idx: int) -> None:
         """Format a single result with box layout."""
         icon = self._get_file_icon(doc.document.uri or "")
+        snippet_text = doc.get_preview(max_chars=SNIPPET_MAX_LENGTH)
+        snippet_lines = self._clean_and_wrap_snippet(snippet_text)
 
-        # Get snippet from DocumentResult (handles sentence-based preview automatically)
-        snippet_text = doc.get_preview(max_chars=400)
-
-        snippet_lines = self._clean_and_wrap_snippet(
-            snippet_text, width=75, max_length=400
-        )
-
-        # Draw the result box header
-        header = f"┌─ Result #{idx} " + "─" * (67 - len(str(idx)))
+        # Draw box header
+        header = f"┌─ Result #{idx} " + "─" * (BOX_TOTAL_WIDTH - 10 - len(str(idx)))
         typer.echo(header)
 
-        # Display URI if available
+        # Display URI and debug info
         if doc.document.uri:
-            uri_display = self._format_uri_display(doc.document.uri, icon, 75)
-            typer.echo(f"│ {uri_display:<75}│")
+            uri_display = self._format_uri_display(doc.document.uri, icon)
+            typer.echo(f"│ {uri_display:<{BOX_CONTENT_WIDTH}}│")
 
-            # Add debug info if needed
-            debug_line = self._get_debug_line(doc)
-            if debug_line:
-                typer.echo(debug_line)
+            if self.show_debug:
+                self._print_debug_line(doc)
 
-            typer.echo("├" + "─" * 77 + "┤")
-        elif self._should_show_debug():
-            debug_line = self._get_debug_line(doc)
-            if debug_line:
-                typer.echo(debug_line)
-                typer.echo("├" + "─" * 77 + "┤")
+            typer.echo("├" + "─" * BOX_TOTAL_WIDTH + "┤")
+        elif self.show_debug:
+            self._print_debug_line(doc)
+            typer.echo("├" + "─" * BOX_TOTAL_WIDTH + "┤")
 
         # Display snippet
         for line in snippet_lines:
-            typer.echo(f"│ {line:<75} │")
+            typer.echo(f"│ {line:<{BOX_CONTENT_WIDTH}} │")
 
-        typer.echo("└" + "─" * 77 + "┘")
+        # Display sentence details in debug mode
+        if self.show_debug and doc.sentences:
+            self._print_sentence_details(doc)
+
+        typer.echo("└" + "─" * BOX_TOTAL_WIDTH + "┘")
         typer.echo()
 
-    def _get_debug_line(self, doc: DocumentResult) -> Optional[str]:
-        """Get debug information line. Override in subclasses."""
-        return None
-
-    def _should_show_debug(self) -> bool:
-        """Whether to show debug information. Override in subclasses."""
-        return False
-
-
-class BoxedDebugFormatter(BoxedFormatter):
-    """Modern detailed formatter with debug information in boxes."""
-
-    def _get_debug_line(self, doc: DocumentResult) -> str:
-        """Format debug metrics line."""
+    def _print_debug_line(self, doc: DocumentResult) -> None:
+        """Print debug metrics line."""
         combined = (
             f"{doc.combined_rank:.5f}" if doc.combined_rank is not None else "N/A"
         )
@@ -161,88 +164,36 @@ class BoxedDebugFormatter(BoxedFormatter):
             if doc.fts_rank is not None
             else "N/A"
         )
-        return f"│ Combined: {combined} │ Vector: {vec_info} │ FTS: {fts_info}"
+        debug_line = f"│ Combined: {combined} │ Vector: {vec_info} │ FTS: {fts_info}"
+        typer.echo(debug_line)
 
-    def _should_show_debug(self) -> bool:
-        return True
+    def _print_sentence_details(self, doc: DocumentResult) -> None:
+        """Print sentence-level details."""
+        typer.echo("├" + "─" * BOX_TOTAL_WIDTH + "┤")
+        typer.echo(f"│ Sentences:{' ' * (BOX_CONTENT_WIDTH - 10)}│")
 
-    def _format_single_result(self, doc: DocumentResult, idx: int) -> None:
-        """Format a single result with box layout including sentence summary."""
-        icon = self._get_file_icon(doc.document.uri or "")
-
-        # Get snippet from DocumentResult (handles sentence-based preview automatically)
-        snippet_text = doc.get_preview(max_chars=400)
-
-        snippet_lines = self._clean_and_wrap_snippet(
-            snippet_text, width=75, max_length=400
-        )
-
-        # Draw the result box header
-        header = f"┌─ Result #{idx} " + "─" * (67 - len(str(idx)))
-        typer.echo(header)
-
-        # Display URI if available
-        if doc.document.uri:
-            uri_display = self._format_uri_display(doc.document.uri, icon, 75)
-            typer.echo(f"│ {uri_display:<75}│")
-
-            # Add debug info
-            debug_line = self._get_debug_line(doc)
-            if debug_line:
-                typer.echo(debug_line)
-
-            typer.echo("├" + "─" * 77 + "┤")
-        elif self._should_show_debug():
-            debug_line = self._get_debug_line(doc)
-            if debug_line:
-                typer.echo(debug_line)
-                typer.echo("├" + "─" * 77 + "┤")
-
-        # Display snippet preview
-        for line in snippet_lines:
-            typer.echo(f"│ {line:<75} │")
-
-        # Display sentence details if available
-        if doc.sentences:
-            typer.echo("├" + "─" * 77 + "┤")
-            typer.echo(
-                "│ Sentences:                                                                │"
+        for sentence in doc.sentences[:MAX_SENTENCES_DISPLAY]:
+            distance_str = (
+                f"{sentence.distance:.6f}" if sentence.distance is not None else "N/A"
             )
+            rank_str = f"#{sentence.rank}" if sentence.rank is not None else "N/A"
 
-            for sentence in doc.sentences[:5]:  # Show max 5 sentences
-                distance_str = (
-                    f"{sentence.distance:.6f}"
-                    if sentence.distance is not None
-                    else "N/A"
-                )
-                rank_str = f"#{sentence.rank}" if sentence.rank is not None else "N/A"
-
-                # Extract sentence preview (first 50 chars)
-                if (
-                    sentence.start_offset is not None
-                    and sentence.end_offset is not None
-                ):
-                    sentence_text = doc.chunk_content[
-                        sentence.start_offset : sentence.end_offset
-                    ].strip()
-                    # Truncate and clean for display
-                    sentence_preview = sentence_text.replace("\n", " ").replace(
-                        "\r", ""
+            # Extract sentence preview
+            if sentence.start_offset is not None and sentence.end_offset is not None:
+                sentence_text = doc.chunk_content[
+                    sentence.start_offset : sentence.end_offset
+                ].strip()
+                sentence_preview = sentence_text.replace("\n", " ").replace("\r", "")
+                if len(sentence_preview) > SENTENCE_PREVIEW_LENGTH:
+                    sentence_preview = (
+                        sentence_preview[: SENTENCE_PREVIEW_LENGTH - 3] + "..."
                     )
-                    if len(sentence_preview) > 50:
-                        sentence_preview = sentence_preview[:47] + "..."
-                else:
-                    sentence_preview = "[No offset info]"
+            else:
+                sentence_preview = "[No offset info]"
 
-                # Format sentence line
-                sentence_line = (
-                    f"│   {rank_str:>3} ({distance_str}) | {sentence_preview}"
-                )
-                # Pad to 78 chars and add closing border
-                typer.echo(sentence_line.ljust(78) + " │")
-
-        typer.echo("└" + "─" * 77 + "┘")
-        typer.echo()
+            # Format and print sentence line
+            sentence_line = f"│   {rank_str:>3} ({distance_str}) | {sentence_preview}"
+            typer.echo(sentence_line.ljust(BOX_TOTAL_WIDTH + 1) + " │")
 
 
 class TableDebugFormatter(SearchResultFormatter):
@@ -312,10 +263,15 @@ class TableDebugFormatter(SearchResultFormatter):
 def get_formatter(
     debug: bool = False, table_view: bool = False
 ) -> SearchResultFormatter:
-    """Factory function to get the appropriate formatter."""
+    """Factory function to get the appropriate formatter.
+
+    Args:
+        debug: Show debug information and sentence details
+        table_view: Use table format instead of boxed format
+
+    Returns:
+        SearchResultFormatter instance
+    """
     if table_view:
         return TableDebugFormatter()
-    elif debug:
-        return BoxedDebugFormatter()
-    else:
-        return BoxedFormatter()
+    return BoxedFormatter(show_debug=debug)

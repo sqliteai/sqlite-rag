@@ -76,19 +76,19 @@ class Database:
         )
 
         # TODO: this table is not ready for sqlite-sync, it uses the id AUTOINCREMENT
-        cursor.execute(
+        cursor.executescript(
             """
             CREATE TABLE IF NOT EXISTS chunks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 document_id TEXT,
                 content TEXT,
-                embedding BLOB,
-                FOREIGN KEY (document_id) REFERENCES documents (id) ON DELETE CASCADE
+                embedding BLOB
             );
+            CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks (document_id);
         """
         )
 
-        cursor.execute(
+        cursor.executescript(
             """
             CREATE TABLE IF NOT EXISTS sentences (
                 id TEXT PRIMARY KEY,
@@ -97,7 +97,8 @@ class Database:
                 embedding BLOB,
                 start_offset INTEGER,
                 end_offset INTEGER
-            )
+            );
+            CREATE INDEX IF NOT EXISTS idx_sentences_chunk_id ON sentences (chunk_id);
             """
         )
 

@@ -270,22 +270,27 @@ class Engine:
                 SELECT
                     v.rowid AS sentence_id,
                     row_number() OVER (ORDER BY v.distance) AS rank_number,
-                    v.distance,
-                    sentences.start_offset as sentence_start_offset,
-                    sentences.end_offset as sentence_end_offset
+                    v.distance
                 FROM {vector_scan_type}('sentences', 'embedding', :query_embedding) AS v
                     JOIN sentences ON sentences.rowid = v.rowid
                 WHERE sentences.chunk_id = :chunk_id
-                ORDER BY rank_number ASC
                 LIMIT :top_k
             )
             SELECT
                 sentence_id,
-                sentence_start_offset,
-                sentence_end_offset,
+                -- Extract sentence directly from document content
+                COALESCE(
+                    substr(chunks.content, sentences.start_offset + 1, sentences.end_offset - sentences.start_offset),
+                    ""
+                ) AS content,
+                sentences.start_offset AS sentence_start_offset,
+                sentences.end_offset AS sentence_end_offset,
                 rank_number,
                 distance
             FROM vec_matches
+                JOIN sentences ON sentences.rowid = vec_matches.sentence_id
+                JOIN chunks ON chunks.id = sentences.chunk_id
+            ORDER BY rank_number ASC
             """,  # nosec B608
             {
                 "query_embedding": query_embedding,
@@ -301,6 +306,7 @@ class Engine:
                 SentenceResult(
                     id=row["sentence_id"],
                     chunk_id=chunk_id,
+                    content=row["content"].strip(),
                     rank=row["rank_number"],
                     distance=row["distance"],
                     start_offset=row["sentence_start_offset"],

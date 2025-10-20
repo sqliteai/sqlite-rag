@@ -9,7 +9,6 @@ class DocumentResult:
     document: Document
 
     chunk_id: int
-    chunk_content: str
 
     combined_rank: float
     vec_rank: float | None = None
@@ -17,6 +16,8 @@ class DocumentResult:
 
     vec_distance: float | None = None
     fts_score: float | None = None
+
+    chunk_content: str = ""
 
     # highlight sentences
     sentences: list[SentenceResult] = field(default_factory=list)
@@ -40,18 +41,8 @@ class DocumentResult:
             # Fallback: no sentences, return truncated chunk content
             return self.chunk_content[:max_chars]
 
-        # Filter sentences that have offset information
-        sentences_with_offsets = [
-            s
-            for s in top_sentences
-            if s.start_offset is not None and s.end_offset is not None
-        ]
-
-        if not sentences_with_offsets:
-            return self.chunk_content[:max_chars]
-
         # Sort by start_offset to maintain document order
-        sentences_with_offsets.sort(
+        top_sentences.sort(
             key=lambda s: s.start_offset if s.start_offset is not None else -1
         )
 
@@ -59,17 +50,8 @@ class DocumentResult:
         total_chars = 0
         prev_end_offset = None
 
-        for sentence in sentences_with_offsets:
-            sentence_text = self.chunk_content[
-                sentence.start_offset : sentence.end_offset
-            ].strip()
-
-            # Calculate remaining budget including potential separator
-            separator_len = len("[...] ") if preview_parts else 0
-            remaining = max_chars - total_chars - separator_len
-
-            if remaining <= 0:
-                break
+        for sentence in top_sentences:
+            sentence_text = sentence.content
 
             if prev_end_offset is not None and sentence.start_offset is not None:
                 gap_size = sentence.start_offset - prev_end_offset
