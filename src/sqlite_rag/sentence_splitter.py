@@ -48,14 +48,3 @@ class SentenceSplitter:
                 )
 
         return sentences
-
-    def _split_into_sentences(self, text: str) -> List[str]:
-        """Split into focused segments for semantic matching."""
-
-        sentence_endings = re.compile(r'(?<=[.!?;])(?:"|\')?\s+(?=[A-Z])|[\n]{2,}')
-        sentences = sentence_endings.split(text)
-
-        # Keep segments that are substantial enough (20+ chars for meaningful matching)
-        return [
-            s.strip() for s in sentences if len(s.strip()) > self.MIN_CHARS_PER_SENTENCE
-        ]

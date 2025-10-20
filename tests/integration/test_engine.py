@@ -41,21 +41,54 @@ class TestEngineQuantization:
         engine.quantize()
 
         # If no exception is raised, the test passes
-        engine.search("test query", "test query")
+        engine.search("test query")
 
-    def test_quantize_cleanup(self, engine):
+    def test_quantize_cleanup(self, engine: Engine):
         """Test quantize cleanup works without errors."""
         engine.quantize()
         engine.quantize_cleanup()
 
         with pytest.raises(OperationalError) as exc_info:
-            engine.search("test query", "test query")
+            engine.search("test query")
         assert "Ensure that vector_quantize() has been called" in str(exc_info.value)
 
 
 class TestEngineSearch:
+    def test_search(self, engine: Engine):
+        # Arrange
+        doc1 = Document(
+            content="The quick brown fox jumps over the lazy dog.",
+            uri="document1.txt",
+        )
+        doc2 = Document(
+            content="How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
+            uri="document2.txt",
+        )
+
+        engine.create_new_context()
+        engine.process(doc1)
+        engine.process(doc2)
+
+        repository = Repository(engine._conn, engine._settings)
+        repository.add_document(doc1)
+        repository.add_document(doc2)
+
+        # Act
+        results = engine.search("quick brown fox")
+
+        # Assert
+        assert len(results) > 0
+        assert results[0].document.uri == "document1.txt"
+
+
+class TestEngineSearchDocuments:
     def test_search_with_empty_database(self, engine: Engine):
-        results = engine.search("nonexistent query", "nonexistent query", top_k=5)
+        results = engine.search_documents(b"132456", "myquery", top_k=5)
+
+        assert len(results) == 0
+
+    def test_search_with_invalid_query(self, engine: Engine):
+        results = engine.search_documents(b"", "", top_k=5)
 
         assert len(results) == 0
 
@@ -89,10 +122,11 @@ class TestEngineSearch:
         repository.add_document(doc2)
         doc3_id = repository.add_document(doc3)
 
+        embedding = engine.generate_embedding("about lumberjack")
         engine.quantize()
 
         # Act
-        results = engine.search("wood lumberjack", "wood lumberjack", top_k=5)
+        results = engine.search_documents(embedding, "about lumberjack", top_k=5)
 
         assert len(results) > 0
         assert doc3_id == results[0].document.id
@@ -127,10 +161,11 @@ class TestEngineSearch:
         repository.add_document(doc2)
         doc3_id = repository.add_document(doc3)
 
+        embedding = engine.generate_embedding("about lumberjack")
         engine.quantize()
 
         # Act
-        results = engine.search("about lumberjack", "about lumberjack", top_k=5)
+        results = engine.search_documents(embedding, "about lumberjack", top_k=5)
 
         assert len(results) > 0
         assert doc3_id == results[0].document.id
@@ -165,10 +200,11 @@ class TestEngineSearch:
         repository.add_document(doc2)
         repository.add_document(doc3)
 
+        embedding = engine.generate_embedding("quick brown fox")
         engine.quantize()
 
         # Act
-        results = engine.search("quick brown fox", "quick brown fox", top_k=5)
+        results = engine.search_documents(embedding, "quick brown fox", top_k=5)
 
         assert len(results) > 0
         assert doc1_id == results[0].document.id
@@ -195,8 +231,10 @@ class TestEngineSearch:
         repository = Repository(conn, settings)
         doc_id = repository.add_document(doc)
 
+        embedding = engine.generate_embedding("wood lumberjack")
+
         # Act
-        results = engine.search("wood lumberjack", "wood lumberjack")
+        results = engine.search_documents(embedding, "wood lumberjack", top_k=5)
 
         assert len(results) > 0
         assert doc_id == results[0].document.id
@@ -227,12 +265,14 @@ class TestEngineSearch:
         doc1_id = repository.add_document(doc1)
         repository.add_document(doc2)
 
+        embedding = engine.generate_embedding(
+            "The quick brown fox jumps over the lazy dog"
+        )
         engine.quantize()
 
         # Act
-        results = engine.search(
-            "The quick brown fox jumps over the lazy dog",
-            "The quick brown fox jumps over the lazy dog",
+        results = engine.search_documents(
+            embedding, "The quick brown fox jumps over the lazy dog", top_k=5
         )
 
         assert len(results) > 0
@@ -268,9 +308,11 @@ class TestEngineSearchSentences:
         cursor = conn.execute("SELECT id FROM chunks WHERE document_id = ?", (doc_id,))
         chunk_id = cursor.fetchone()[0]
 
+        embedding = engine.generate_embedding("stitch time")
+
         # Act
         results = engine.search_sentences(
-            "stitch time",
+            embedding,
             chunk_id,
             top_k=1,
         )

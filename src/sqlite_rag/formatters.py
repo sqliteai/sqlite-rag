@@ -6,8 +6,6 @@ from typing import List, Optional
 
 import typer
 
-from sqlite_rag.models.sentence_result import SentenceResult
-
 from .models.document_result import DocumentResult
 
 
@@ -82,81 +80,6 @@ class SearchResultFormatter(ABC):
             uri_display = f"{icon} ...{uri[-available_width:]}"
         return uri_display
 
-    def _build_sentence_preview(
-        self,
-        chunk_content: str,
-        sentences: List[SentenceResult],
-        max_chars: int = 400,
-    ) -> str:
-        """Build preview from top 3 ranked sentences with [...] for gaps.
-
-        Args:
-            chunk_content: The full chunk text
-            sentences: List of SentenceResult objects (should already be sorted by rank)
-            max_chars: Maximum total characters for preview
-
-        Returns:
-            Preview string with top sentences and [...] separators.
-            Falls back to truncated chunk_content if sentences have no offsets.
-        """
-
-        # Take top 3 sentences (they should already be sorted by rank/distance)
-        top_sentences = sentences[:3] if sentences else []
-
-        if not top_sentences:
-            # Fallback: no sentences, return truncated chunk content
-            return chunk_content[:max_chars]
-
-        # Filter sentences that have offset information
-        sentences_with_offsets = [
-            s
-            for s in top_sentences
-            if s.start_offset is not None and s.end_offset is not None
-        ]
-
-        if not sentences_with_offsets:
-            # Fallback: sentences exist but no offset information, return truncated chunk content
-            return chunk_content[:max_chars]
-
-        # Sort by start_offset to maintain document order
-        sentences_with_offsets.sort(
-            key=lambda s: s.start_offset if s.start_offset is not None else -1
-        )
-
-        preview_parts = []
-        total_chars = 0
-        prev_end_offset = None
-
-        for sentence in sentences_with_offsets:
-            # Extract sentence text using offsets
-            sentence_text = chunk_content[
-                sentence.start_offset : sentence.end_offset
-            ].strip()
-
-            # Calculate remaining budget including potential separator
-            separator_len = len(" [...] ") if preview_parts else 0
-            remaining = max_chars - total_chars - separator_len
-
-            if remaining <= 0:
-                break
-
-            # Truncate sentence if needed
-            if len(sentence_text) > remaining:
-                sentence_text = sentence_text[: remaining - 3] + "..."
-
-            # Check if there's a gap > 10 chars from previous sentence
-            if prev_end_offset is not None and sentence.start_offset is not None:
-                gap_size = sentence.start_offset - prev_end_offset
-                if gap_size > 10:
-                    preview_parts.append("[...]")
-                    total_chars += len(" [...] ")
-
-            preview_parts.append(sentence_text)
-            total_chars += len(sentence_text)
-            prev_end_offset = sentence.end_offset
-
-        return " ".join(preview_parts)
-
 
 class BoxedFormatter(SearchResultFormatter):
     """Base class for boxed result formatters."""
@@ -176,11 +99,8 @@ class BoxedFormatter(SearchResultFormatter):
         """Format a single result with box layout."""
         icon = self._get_file_icon(doc.document.uri or "")
 
-        # Use sentence-based preview if sentences are available
-        if doc.sentences:
-            snippet_text = self._build_sentence_preview(doc.snippet, doc.sentences)
-        else:
-            snippet_text = doc.snippet
+        # Get snippet from DocumentResult (handles sentence-based preview automatically)
+        snippet_text = doc.get_preview(max_chars=400)
 
         snippet_lines = self._clean_and_wrap_snippet(
             snippet_text, width=75, max_length=400
@@ -250,11 +170,8 @@ class BoxedDebugFormatter(BoxedFormatter):
         """Format a single result with box layout including sentence summary."""
         icon = self._get_file_icon(doc.document.uri or "")
 
-        # Use sentence-based preview if sentences are available
-        if doc.sentences:
-            snippet_text = self._build_sentence_preview(doc.snippet, doc.sentences)
-        else:
-            snippet_text = doc.snippet
+        # Get snippet from DocumentResult (handles sentence-based preview automatically)
+        snippet_text = doc.get_preview(max_chars=400)
 
         snippet_lines = self._clean_and_wrap_snippet(
             snippet_text, width=75, max_length=400
@@ -305,7 +222,7 @@ class BoxedDebugFormatter(BoxedFormatter):
                     sentence.start_offset is not None
                     and sentence.end_offset is not None
                 ):
-                    sentence_text = doc.snippet[
+                    sentence_text = doc.chunk_content[
                         sentence.start_offset : sentence.end_offset
                     ].strip()
                     # Truncate and clean for display
@@ -364,13 +281,8 @@ class TableDebugFormatter(SearchResultFormatter):
 
     def _print_table_row(self, idx: int, doc: DocumentResult) -> None:
         """Print a single table row."""
-        # Use sentence-based preview if sentences are available
-        if doc.sentences:
-            snippet = self._build_sentence_preview(
-                doc.snippet, doc.sentences, max_chars=52
-            )
-        else:
-            snippet = doc.snippet
+        # Get snippet from DocumentResult (handles sentence-based preview automatically)
+        snippet = doc.get_preview(max_chars=52)
 
         # Clean snippet display
         snippet = snippet.replace("\n", " ").replace("\r", "")

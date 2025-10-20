@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from sqlite_rag import SQLiteRag
-from sqlite_rag.settings import Settings
 
 
 class TestSQLiteRagAdd:
@@ -821,61 +820,3 @@ class TestSQLiteRagSearch:
             # Second result should have distance > 0
             second_result = results[1]
             assert second_result.vec_distance and second_result.vec_distance > 0.0
-
-    def test_search_uses_retrieval_query_template(self, mocker):
-        template = "task: search | Do something with {content}"
-
-        settings = {"prompt_template_retrieval_query": template}
-
-        rag = SQLiteRag.create(":memory:", settings=settings)
-
-        mock_engine = mocker.Mock()
-        mock_engine.search.return_value = []
-
-        rag._engine = mock_engine
-
-        query = "test query"
-        rag.search(query)
-
-        # Assert that engine.search was called with the formatted template
-        expected_semantic_query = rag._settings.prompt_template_retrieval_query.format(
-            content=query
-        )
-        expected_fts_query = query + "*"
-
-        mock_engine.search.assert_called_once_with(
-            expected_semantic_query, expected_fts_query, top_k=10
-        )
-
-    @pytest.mark.parametrize("use_prompt_templates", [True, False])
-    def test_search_with_prompt_template(self, mocker, use_prompt_templates):
-        # Arrange
-        settings = Settings(
-            use_prompt_templates=use_prompt_templates,
-            prompt_template_retrieval_query="task: search result | query: {content}",
-        )
-
-        # Mock engine and its search method
-        mock_engine = mocker.Mock()
-        mock_engine.search.return_value = []  # Empty search results
-
-        # Create SQLiteRag instance with mocked dependencies
-        rag = SQLiteRag(mocker.Mock(), settings)
-        rag._engine = mock_engine
-
-        mocker.patch.object(rag, "_ensure_initialized")
-
-        # Act
-        rag.search("test query", new_context=False)
-
-        # Assert - verify engine.search was called with correct formatted query
-        expected_semantic_query = (
-            "task: search result | query: test query"
-            if use_prompt_templates
-            else "test query"
-        )
-        expected_fts_query = "test query*"
-
-        mock_engine.search.assert_called_once_with(
-            expected_semantic_query, expected_fts_query, top_k=10
-        )

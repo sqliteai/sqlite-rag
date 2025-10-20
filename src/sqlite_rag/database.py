@@ -88,7 +88,6 @@ class Database:
         """
         )
 
-        # TODO: remove sequence
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS sentences (

@@ -1,4 +1,5 @@
 import json
+import re
 import sqlite3
 from pathlib import Path
 from typing import List
@@ -123,11 +124,38 @@ class Engine:
 
         cursor.execute("SELECT llm_context_free();")
 
-    def search(
-        self, semantic_query: str, fts_query, top_k: int = 10
+    def search(self, query, top_k: int = 10) -> list[DocumentResult]:
+        """Semantic search and full-text search sorted with Reciprocal Rank Fusion
+        with top matching sentences to highlight."""
+        semantic_query = query
+        if self._settings.use_prompt_templates:
+            semantic_query = self._settings.prompt_template_retrieval_query.format(
+                content=query
+            )
+
+        # Clean up and split into words
+        # '*' is used to match while typing
+        fts_query = " ".join(re.findall(r"\b\w+\b", query.lower())) + "*"
+
+        query_embedding = self.generate_embedding(semantic_query)
+
+        results = self.search_documents(query_embedding, fts_query, top_k=top_k)
+
+        # Refine chunks with top sentences
+        for result in results:
+            result.sentences = self.search_sentences(
+                query_embedding, result.chunk_id, top_k=self._settings.top_k_sentences
+            )
+
+        return results
+
+    def search_documents(
+        self, query_embedding: bytes, fts_query: str, top_k: int
     ) -> list[DocumentResult]:
         """Semantic search and full-text search sorted with Reciprocal Rank Fusion."""
-        query_embedding = self.generate_embedding(semantic_query)
+        # invalid query
+        if query_embedding == b"" or fts_query.strip() == "":
+            return []
 
         vector_scan_type = (
             "vector_quantize_scan"
@@ -180,7 +208,7 @@ class Engine:
                 documents.content as document_content,
                 documents.metadata,
                 chunks.id AS chunk_id,
-                chunks.content AS snippet,
+                chunks.content AS chunk_content,
                 vec_rank,
                 fts_rank,
                 combined_rank,
@@ -212,7 +240,7 @@ class Engine:
                     metadata=json.loads(row["metadata"]) if row["metadata"] else {},
                 ),
                 chunk_id=row["chunk_id"],
-                snippet=row["snippet"],
+                chunk_content=row["chunk_content"],
                 vec_rank=row["vec_rank"],
                 fts_rank=row["fts_rank"],
                 combined_rank=row["combined_rank"],
@@ -225,10 +253,9 @@ class Engine:
         return results
 
     def search_sentences(
-        self, query: str, chunk_id: int, top_k: int
+        self, query_embedding: bytes, chunk_id: int, top_k: int
     ) -> List[SentenceResult]:
-        query_embedding = self.generate_embedding(query)
-
+        """Semantic search for sentences within a chunk."""
         vector_scan_type = (
             "vector_quantize_scan_stream"
             if self._settings.quantize_scan
@@ -244,7 +271,6 @@ class Engine:
                     v.rowid AS sentence_id,
                     row_number() OVER (ORDER BY v.distance) AS rank_number,
                     v.distance,
-                    sentences.content as sentence_content,
                     sentences.start_offset as sentence_start_offset,
                     sentences.end_offset as sentence_end_offset
                 FROM {vector_scan_type}('sentences', 'embedding', :query_embedding) AS v
@@ -255,7 +281,6 @@ class Engine:
             )
             SELECT
                 sentence_id,
-                sentence_content,
                 sentence_start_offset,
                 sentence_end_offset,
                 rank_number,

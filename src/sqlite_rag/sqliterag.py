@@ -1,4 +1,3 @@
-import re
 import sqlite3
 from dataclasses import asdict
 from pathlib import Path
@@ -317,25 +316,7 @@ class SQLiteRag:
         if new_context:
             self._engine.create_new_context()
 
-        semantic_query = query
-        if self._settings.use_prompt_templates:
-            semantic_query = self._settings.prompt_template_retrieval_query.format(
-                content=query
-            )
-
-        # Clean up and split into words
-        # '*' is used to match while typing
-        fts_query = " ".join(re.findall(r"\b\w+\b", query.lower())) + "*"
-
-        results = self._engine.search(semantic_query, fts_query, top_k=top_k)
-
-        # Refine chunks with top sentences
-        for result in results:
-            result.sentences = self._engine.search_sentences(
-                semantic_query, result.chunk_id, top_k=self._settings.top_k_sentences
-            )
-
-        return results
+        return self._engine.search(query, top_k=top_k)
 
     def get_settings(self) -> dict:
         """Get settings and more useful information"""
