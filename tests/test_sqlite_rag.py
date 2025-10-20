@@ -838,10 +838,14 @@ class TestSQLiteRagSearch:
         rag.search(query)
 
         # Assert that engine.search was called with the formatted template
-        expected_query = rag._settings.prompt_template_retrieval_query.format(
+        expected_semantic_query = rag._settings.prompt_template_retrieval_query.format(
             content=query
         )
-        mock_engine.search.assert_called_once_with(expected_query, top_k=10)
+        expected_fts_query = query + "*"
+
+        mock_engine.search.assert_called_once_with(
+            expected_semantic_query, expected_fts_query, top_k=10
+        )
 
     @pytest.mark.parametrize("use_prompt_templates", [True, False])
     def test_search_with_prompt_template(self, mocker, use_prompt_templates):
@@ -865,9 +869,13 @@ class TestSQLiteRagSearch:
         rag.search("test query", new_context=False)
 
         # Assert - verify engine.search was called with correct formatted query
-        expected_query = (
+        expected_semantic_query = (
             "task: search result | query: test query"
             if use_prompt_templates
             else "test query"
         )
-        mock_engine.search.assert_called_once_with(expected_query, top_k=10)
+        expected_fts_query = "test query*"
+
+        mock_engine.search.assert_called_once_with(
+            expected_semantic_query, expected_fts_query, top_k=10
+        )

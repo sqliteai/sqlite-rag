@@ -13,7 +13,7 @@ from sqlite_rag.sentence_splitter import SentenceSplitter
 
 class TestEngine:
     @pytest.mark.slow
-    def test_stress_embedding_generation(self, engine):
+    def test_stress_embedding_generation(self, engine: Engine):
         """Test embedding generation with a large number of chunks
         to not fail and to never generate duplicated embeddings."""
 
@@ -36,7 +36,7 @@ class TestEngine:
 
 
 class TestEngineQuantization:
-    def test_quantize_embedding(self, engine):
+    def test_quantize_embedding(self, engine: Engine):
         """Test quantize called for chunks and sentences embeddings."""
         engine.quantize()
 
@@ -54,8 +54,8 @@ class TestEngineQuantization:
 
 
 class TestEngineSearch:
-    def test_search_with_empty_database(self, engine):
-        results = engine.search("nonexistent query", top_k=5)
+    def test_search_with_empty_database(self, engine: Engine):
+        results = engine.search("nonexistent query", "nonexistent query", top_k=5)
 
         assert len(results) == 0
 

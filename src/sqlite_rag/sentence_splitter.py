@@ -10,27 +10,48 @@ class SentenceSplitter:
 
     def split(self, chunk: Chunk) -> List[Sentence]:
         """Split chunk into sentences."""
+        # Split on: sentence endings, semicolons, or paragraph breaks
+        sentence_regex = re.compile(r'(?<=[.!?;])(?:"|\')?\s+(?=[A-Z])|[\n]{2,}')
+
         sentences = []
+        last_end = 0
+        text = chunk.content
 
-        sentences_text = self._split_into_sentences(chunk.content)
-        start_offset = 0
-        end_offset = 0
-        for sentence_text in sentences_text:
-            start_offset = chunk.content.index(sentence_text, end_offset)
-            end_offset = start_offset + len(sentence_text)
+        for match in sentence_regex.finditer(text):
+            segment = text[last_end : match.end()]
 
-            sentence = Sentence(
-                content=sentence_text,
-                start_offset=start_offset,
-                end_offset=end_offset,
-            )
-            sentences.append(sentence)
+            segment = segment.strip()
+            if len(segment) > self.MIN_CHARS_PER_SENTENCE:
+                sentences.append(
+                    Sentence(
+                        content=segment,
+                        start_offset=last_end,
+                        end_offset=last_end + len(segment),
+                    )
+                )
+
+            # Position after the current match
+            last_end = match.end()
+
+        # Last segment
+        if last_end < len(text):
+            segment = text[last_end:]
+
+            segment = segment.strip()
+            if len(segment) > self.MIN_CHARS_PER_SENTENCE:
+                sentences.append(
+                    Sentence(
+                        content=segment,
+                        start_offset=last_end,
+                        end_offset=last_end + len(segment),
+                    )
+                )
 
         return sentences
 
     def _split_into_sentences(self, text: str) -> List[str]:
         """Split into focused segments for semantic matching."""
-        # Split on: sentence endings, semicolons, or paragraph breaks
+
         sentence_endings = re.compile(r'(?<=[.!?;])(?:"|\')?\s+(?=[A-Z])|[\n]{2,}')
         sentences = sentence_endings.split(text)
 
