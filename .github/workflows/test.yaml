@@ -49,6 +49,10 @@ jobs:
 
     - name: Test
       # Using default directory for models
+      # COVERAGE_CORE=pytrace: Workaround for Python 3.11 segfault with SQLite extensions + C tracer
+      # See: https://github.com/nedbat/coveragepy/issues/1665
+      env:
+        COVERAGE_CORE: ${{ matrix.python-version == '3.11' && 'pytrace' || '' }}
       run: |
         pytest --cov --cov-branch --cov-report=xml -v -m "not slow" ./tests
 

@@ -439,12 +439,12 @@ def reset(
 def search(
     ctx: typer.Context,
     query: str,
-    limit: int = typer.Option(10, help="Number of results to return"),
+    limit: int = typer.Option(5, help="Number of results to return"),
     debug: bool = typer.Option(
         False,
         "-d",
         "--debug",
-        help="Print extra debug information with modern formatting",
+        help="Print extra debug information with sentence-level details",
     ),
     peek: bool = typer.Option(
         False, "--peek", help="Print debug information using compact table format"

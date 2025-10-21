@@ -15,11 +15,14 @@ class Settings:
         "./models/unsloth/embeddinggemma-300m-GGUF/embeddinggemma-300M-Q8_0.gguf"
     )
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text
-    model_options: str = ""
+    other_model_options: str = ""
+
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createoptions-text
-    model_context_options: str = (
-        "generate_embedding=1,normalize_embedding=1,pooling_type=mean,embedding_type=INT8"
-    )
+    other_model_context_options: str = ""
+
+    # How the model pools token embeddings into a single embedding
+    # Options: "mean", "max", "min", "last", "first"
+    pooling_type: str = "mean"
 
     # Allow the sqlite-ai extension to use the GPU
     # See: https://github.com/sqliteai/sqlite-ai
@@ -27,14 +30,15 @@ class Settings:
 
     vector_type: str = "INT8"
     embedding_dim: int = 768
+
     other_vector_options: str = (
         "distance=cosine"  # e.g. distance=metric,other=value,...
     )
 
     # It includes the overlap size and the prompt template length
-    chunk_size: int = 512
+    chunk_size: int = 2048
     # Tokens overlap between chunks
-    chunk_overlap: int = 61
+    chunk_overlap: int = 256
 
     #
     # Search settings
@@ -46,7 +50,7 @@ class Settings:
     quantize_preload: bool = False
 
     # Weights for combining FTS and vector search results
-    weight_fts: float = 1.0
+    weight_fts: float = 1.5
     weight_vec: float = 1.0
 
     #
@@ -61,7 +65,7 @@ class Settings:
 
     # Template to index documents for retrieval, use `{title}` with the title or the string `"none"`
     prompt_template_retrieval_document: str = "title: {title} | text: {content}"
-    prompt_template_retrieval_query: str = "task: search result | query: {content}"
+    prompt_template_retrieval_query: str = 'title: "none" | text: {content}'
 
     #
     # Index settings
@@ -71,6 +75,31 @@ class Settings:
     max_document_size_bytes: int = 5 * 1024 * 1024  # 5 MB
     # Zero means no limit
     max_chunks_per_document: int = 1000
+    # Number of top sentences to return per document
+    top_k_sentences: int = 3
+
+    def get_embeddings_context_options(self) -> str:
+        """Get the context options for embeddings generation."""
+        options = {
+            "n_ctx": self.chunk_size,
+            "embedding_type": self.vector_type,
+            "pooling_type": self.pooling_type,
+            "generate_embedding": 1,
+            "normalize_embedding": 1,
+        }
+
+        return ",".join(f"{k}={v}" for k, v in options.items()) + (
+            f",{self.other_model_context_options}"
+            if self.other_model_context_options
+            else ""
+        )
+
+    def get_vector_init_options(self) -> str:
+        """Get the vector init options for the vector store."""
+        options = {"type": self.vector_type, "dimension": self.embedding_dim}
+        return ",".join(f"{k}={v}" for k, v in options.items()) + (
+            f",{self.other_vector_options}" if self.other_vector_options else ""
+        )
 
 
 class SettingsManager:
@@ -177,4 +206,5 @@ class SettingsManager:
             new_settings.model_path != current_settings.model_path
             or new_settings.embedding_dim != current_settings.embedding_dim
             or new_settings.vector_type != current_settings.vector_type
+            or new_settings.pooling_type != current_settings.pooling_type
         )

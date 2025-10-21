@@ -1,10 +1,9 @@
 import pytest
 
-from sqlite_rag.chunker import Chunker
 from sqlite_rag.engine import Engine
 from sqlite_rag.models.chunk import Chunk
 from sqlite_rag.models.document import Document
-from sqlite_rag.repository import Repository
+from sqlite_rag.models.sentence import Sentence
 from sqlite_rag.settings import Settings
 
 
@@ -32,8 +31,10 @@ class TestEngine:
         mock_conn = mocker.Mock()
         mock_chunker = mocker.Mock()
         mock_chunker.chunk.return_value = [mock_chunk]
+        mock_sentence_splitter = mocker.Mock()
+        mock_sentence_splitter.split.return_value = []
 
-        engine = Engine(mock_conn, settings, mock_chunker)
+        engine = Engine(mock_conn, settings, mock_chunker, mock_sentence_splitter)
 
         # Mock generate_embedding completely
         mock_generate = mocker.patch.object(
@@ -65,8 +66,10 @@ class TestEngine:
         settings = Settings(max_chunks_per_document=max_chunks_per_document)
         mock_chunker = mocker.Mock()
         mock_chunker.chunk.return_value = chunks
+        mock_sentence_splitter = mocker.Mock()
+        mock_sentence_splitter.split.return_value = []
 
-        engine = Engine(mock_conn, settings, mock_chunker)
+        engine = Engine(mock_conn, settings, mock_chunker, mock_sentence_splitter)
 
         mock_generate_embedding = mocker.patch.object(engine, "generate_embedding")
         mock_generate_embedding = mocker.spy(
@@ -84,183 +87,175 @@ class TestEngine:
             chunks = call_args[0][0]  # First argument
             assert len(chunks) == expected_chunk_count
 
-
-class TestEngineSearch:
-    def test_search_with_empty_database(self, engine):
-        results = engine.search("nonexistent query", top_k=5)
-
-        assert len(results) == 0
-
-    def test_search_with_semantic_and_fts(self, db_conn):
+    def test_process_with_sentences(self, mocker):
         # Arrange
-        conn, settings = db_conn
+        chunks = [Chunk(content="Chunk 1"), Chunk(content="Chunk 2")]
 
-        engine = Engine(conn, settings, Chunker(conn, settings))
-        engine.load_model()
-        engine.create_new_context()
+        mock_conn = mocker.Mock()
+        settings = Settings()
+        mock_chunker = mocker.Mock()
+        mock_chunker.chunk.return_value = chunks
+        mock_sentence_splitter = mocker.Mock()
+        # return different number of sentences per chunk
+        mock_sentence_splitter.split.side_effect = [
+            [Sentence(content="Sentence 1.1")],
+            [Sentence(content="Sentence 2.1"), Sentence(content="Sentence 2.2")],
+        ]
 
-        doc1 = Document(
-            content="The quick brown fox jumps over the lazy dog.",
-            uri="document1.txt",
+        engine = Engine(mock_conn, settings, mock_chunker, mock_sentence_splitter)
+
+        mock_generate_embedding = mocker.patch.object(engine, "generate_embedding")
+        mock_generate_embedding = mocker.spy(
+            mock_generate_embedding, "generate_embedding"
         )
-        doc2 = Document(
-            content="How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
-            uri="document2.txt",
-        )
-        doc3 = Document(
-            content="This document discusses about woodcutters and wood.",
-            uri="document3.txt",
-        )
+        mock_generate_embedding.return_value = chunks
 
-        engine.process(doc1)
-        engine.process(doc2)
-        engine.process(doc3)
-
-        repository = Repository(conn, settings)
-        repository.add_document(doc1)
-        repository.add_document(doc2)
-        doc3_id = repository.add_document(doc3)
-
-        engine.quantize()
+        document = Document(content="Test document content")
 
         # Act
-        results = engine.search("wood lumberjack", top_k=5)
+        engine.process(document)
 
-        assert len(results) > 0
-        assert doc3_id == results[0].document.id
+        # Assert
+        assert len(document.chunks) == 2
+        assert len(document.chunks[0].sentences) == 1
+        assert len(document.chunks[1].sentences) == 2
 
-    def test_search_semantic_result(self, db_conn):
+    def test_process_without_sentences(self, mocker):
         # Arrange
-        conn, settings = db_conn
+        chunks = [Chunk(content="Chunk 1")]
 
-        engine = Engine(conn, settings, Chunker(conn, settings))
-        engine.load_model()
-        engine.create_new_context()
+        mock_conn = mocker.Mock()
+        settings = Settings()
+        mock_chunker = mocker.Mock()
+        mock_chunker.chunk.return_value = chunks
+        mock_sentence_splitter = mocker.Mock()
+        mock_sentence_splitter.split.return_value = []
 
-        doc1 = Document(
-            content="The quick brown fox jumps over the lazy dog.",
-            uri="document1.txt",
+        engine = Engine(mock_conn, settings, mock_chunker, mock_sentence_splitter)
+
+        mock_generate_embedding = mocker.patch.object(engine, "generate_embedding")
+        mock_generate_embedding = mocker.spy(
+            mock_generate_embedding, "generate_embedding"
         )
-        doc2 = Document(
-            content="How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
-            uri="document2.txt",
-        )
-        doc3 = Document(
-            content="This document discusses about woodcutters and wood.",
-            uri="document3.txt",
-        )
+        mock_generate_embedding.return_value = chunks
 
-        engine.process(doc1)
-        engine.process(doc2)
-        engine.process(doc3)
-
-        repository = Repository(conn, settings)
-        repository.add_document(doc1)
-        repository.add_document(doc2)
-        doc3_id = repository.add_document(doc3)
-
-        engine.quantize()
+        document = Document(content="Test document content")
 
         # Act
-        results = engine.search("about lumberjack", top_k=5)
+        engine.process(document)
 
-        assert len(results) > 0
-        assert doc3_id == results[0].document.id
+        # Assert
+        assert len(document.chunks) == 1
+        assert len(document.chunks[0].sentences) == 0
 
-    def test_search_fts_results(self, db_conn):
+    def test_search(self, mocker):
         # Arrange
-        conn, settings = db_conn
+        mock_conn = mocker.Mock()
+        settings = Settings()
+        engine = Engine(mock_conn, settings, mocker.Mock(), mocker.Mock())
 
-        engine = Engine(conn, settings, Chunker(conn, settings))
-        engine.load_model()
-        engine.create_new_context()
-
-        doc1 = Document(
-            content="The quick brown fox jumps over the lazy dog.",
-            uri="document1.txt",
+        mock_generate = mocker.patch.object(
+            engine, "generate_embedding", return_value=b"embedding"
         )
-        doc2 = Document(
-            content="How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
-            uri="document2.txt",
+        mock_search_docs = mocker.patch.object(
+            engine,
+            "search_documents",
+            return_value=[
+                mocker.Mock(chunk_id=1, sentences=[]),
+                mocker.Mock(chunk_id=2, sentences=[]),
+            ],
         )
-        doc3 = Document(
-            content="This document discusses about woodcutters and wood.",
-            uri="document3.txt",
+        mock_search_sents = mocker.patch.object(
+            engine, "search_sentences", return_value=[]
         )
-
-        engine.process(doc1)
-        engine.process(doc2)
-        engine.process(doc3)
-
-        repository = Repository(conn, settings)
-        doc1_id = repository.add_document(doc1)
-        repository.add_document(doc2)
-        repository.add_document(doc3)
-
-        engine.quantize()
 
         # Act
-        results = engine.search("quick brown fox", top_k=5)
+        engine.search("test query", top_k=5)
 
-        assert len(results) > 0
-        assert doc1_id == results[0].document.id
+        # Assert
+        mock_generate.assert_called_once_with('title: "none" | text: test query')
+        mock_search_docs.assert_called_once_with(b"embedding", "test query*", top_k=5)
+        assert mock_search_sents.call_count == 2
+        mock_search_sents.assert_any_call(
+            b"embedding", 1, top_k=settings.top_k_sentences
+        )
+        mock_search_sents.assert_any_call(
+            b"embedding", 2, top_k=settings.top_k_sentences
+        )
 
-    def test_search_without_quantization(self, db_conn):
+    def test_search_uses_retrieval_query_template(self, mocker):
         # Arrange
-        conn, settings = db_conn
-        settings.quantize_scan = False
+        template = "task: search | Do something with {content}"
 
-        engine = Engine(conn, settings, Chunker(conn, settings))
-        engine.load_model()
+        settings = Settings(prompt_template_retrieval_query=template)
 
-        doc = Document(
-            content="The quick brown fox jumps over the lazy dog.",
-            uri="document1.txt",
+        mock_conn = mocker.Mock()
+        engine = Engine(mock_conn, settings, mocker.Mock(), mocker.Mock())
+
+        mock_generate = mocker.patch.object(
+            engine, "generate_embedding", return_value=b"embedding"
         )
-
-        engine.create_new_context()
-        engine.process(doc)
-
-        repository = Repository(conn, settings)
-        doc_id = repository.add_document(doc)
+        mock_search_docs = mocker.patch.object(
+            engine,
+            "search_documents",
+            return_value=[
+                mocker.Mock(chunk_id=1, sentences=[]),
+            ],
+        )
+        mock_search_sents = mocker.patch.object(
+            engine, "search_sentences", return_value=[]
+        )
 
         # Act
-        results = engine.search("wood lumberjack")
+        query = "test query"
+        engine.search(query, top_k=10)
 
-        assert len(results) > 0
-        assert doc_id == results[0].document.id
+        expected_fts_query = query + "*"
 
-    def test_search_exact_match(self, db_conn):
-        conn, settings = db_conn
-        # cosin distance for searching embedding is exact 0.0 when strings match
-        settings.other_vector_options = "distance=cosine"
-        settings.use_prompt_templates = False
-
-        engine = Engine(conn, settings, Chunker(conn, settings))
-        engine.load_model()
-        engine.create_new_context()
-
-        doc1 = Document(
-            content="The quick brown fox jumps over the lazy dog",
-            uri="document1.txt",
+        # Assert
+        # Is called with the formatted template
+        mock_generate.assert_called_once_with(
+            "task: search | Do something with test query"
         )
-        doc2 = Document(
-            content="How much wood would a woodchuck chuck if a woodchuck could chuck wood?",
-            uri="document2.txt",
+        mock_search_docs.assert_called_once_with(
+            b"embedding", expected_fts_query, top_k=10
+        )
+        mock_search_sents.assert_called_once_with(
+            b"embedding", 1, top_k=settings.top_k_sentences
         )
 
-        engine.process(doc1)
-        engine.process(doc2)
+    @pytest.mark.parametrize("use_prompt_templates", [True, False])
+    def test_search_with_prompt_template(self, mocker, use_prompt_templates):
+        # Arrange
+        settings = Settings(
+            use_prompt_templates=use_prompt_templates,
+            prompt_template_retrieval_query="task: search result | query: {content}",
+        )
 
-        repository = Repository(conn, settings)
-        doc1_id = repository.add_document(doc1)
-        repository.add_document(doc2)
+        mock_conn = mocker.Mock()
+        engine = Engine(mock_conn, settings, mocker.Mock(), mocker.Mock())
 
-        engine.quantize()
+        mock_generate_embedding = mocker.patch.object(
+            engine, "generate_embedding", return_value=b"embedding"
+        )
+        mocker.patch.object(
+            engine,
+            "search_documents",
+            return_value=[
+                mocker.Mock(chunk_id=1, sentences=[]),
+            ],
+        )
+        mocker.patch.object(engine, "search_sentences", return_value=[])
 
         # Act
-        results = engine.search("The quick brown fox jumps over the lazy dog")
+        query = "test query"
+        engine.search(query)
 
-        assert len(results) > 0
-        assert doc1_id == results[0].document.id
-        assert 0.0 == results[0].vec_distance
+        # Assert - verify engine.search was called with correct formatted query
+        expected_semantic_query = (
+            "task: search result | query: test query"
+            if use_prompt_templates
+            else "test query"
+        )
+
+        mock_generate_embedding.assert_called_once_with(expected_semantic_query)

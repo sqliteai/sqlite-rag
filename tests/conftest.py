@@ -1,11 +1,13 @@
 import sqlite3
 import tempfile
+from collections.abc import Generator
 
 import pytest
 
 from sqlite_rag.chunker import Chunker
 from sqlite_rag.database import Database
 from sqlite_rag.engine import Engine
+from sqlite_rag.sentence_splitter import SentenceSplitter
 from sqlite_rag.settings import Settings
 
 
@@ -25,12 +27,24 @@ def db_conn():
 
 
 @pytest.fixture
-def engine(db_conn) -> Engine:
+def engine(db_conn) -> Generator[Engine, None, None]:
     conn, settings = db_conn
 
-    engine = Engine(conn, settings, chunker=Chunker(conn, settings))
+    engine = Engine(
+        conn,
+        settings,
+        chunker=Chunker(conn, settings),
+        sentence_splitter=SentenceSplitter(),
+    )
     engine.load_model()
     engine.quantize()
     engine.create_new_context()
 
-    return engine
+    yield engine
+
+    # Cleanup resources to prevent segfaults in Python 3.11
+    # Must explicitly free resources before garbage collection
+    try:
+        engine.close()
+    except Exception:
+        pass

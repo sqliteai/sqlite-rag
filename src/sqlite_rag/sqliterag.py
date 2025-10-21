@@ -6,6 +6,7 @@ from typing import Any, Optional
 from sqlite_rag.extractor import Extractor
 from sqlite_rag.logger import Logger
 from sqlite_rag.models.document_result import DocumentResult
+from sqlite_rag.sentence_splitter import SentenceSplitter
 
 from .chunker import Chunker
 from .database import Database
@@ -25,7 +26,12 @@ class SQLiteRag:
 
         self._repository = Repository(self._conn, settings)
         self._chunker = Chunker(self._conn, settings)
-        self._engine = Engine(self._conn, settings, chunker=self._chunker)
+        self._engine = Engine(
+            self._conn,
+            settings,
+            chunker=self._chunker,
+            sentence_splitter=SentenceSplitter(),
+        )
         self._extractor = Extractor()
 
         self.ready = False
@@ -309,9 +315,6 @@ class SQLiteRag:
         self._ensure_initialized()
         if new_context:
             self._engine.create_new_context()
-
-        if self._settings.use_prompt_templates:
-            query = self._settings.prompt_template_retrieval_query.format(content=query)
 
         return self._engine.search(query, top_k=top_k)
 
