@@ -1,5 +1,6 @@
 from sqlite_rag.models.chunk import Chunk
 from sqlite_rag.models.document import Document
+from sqlite_rag.models.sentence import Sentence
 from sqlite_rag.repository import Repository
 
 
@@ -153,34 +154,71 @@ class TestRepository:
         conn, settings = db_conn
         repo = Repository(conn, settings)
 
-        # Add a document with chunks
+        # Add a document with chunks and sentences
         doc = Document(
             content="Test document content.",
             uri="test.txt",
             metadata={"author": "test"},
         )
-        doc.chunks = [
-            Chunk(content="Chunk 1", embedding=b"\x00" * 384),
-            Chunk(content="Chunk 2", embedding=b"\x00" * 384),
+        chunk1 = Chunk(content="Chunk 1", embedding=b"\x00" * 384)
+        chunk1.sentences = [
+            Sentence(
+                content="Sentence 1",
+                embedding=b"\x00" * 384,
+                start_offset=0,
+                end_offset=10,
+            ),
+            Sentence(
+                content="Sentence 2",
+                embedding=b"\x00" * 384,
+                start_offset=11,
+                end_offset=20,
+            ),
         ]
+        chunk2 = Chunk(content="Chunk 2", embedding=b"\x00" * 384)
+        chunk2.sentences = [
+            Sentence(
+                content="Sentence 3",
+                embedding=b"\x00" * 384,
+                start_offset=0,
+                end_offset=10,
+            ),
+        ]
+        doc.chunks = [chunk1, chunk2]
         doc_id = repo.add_document(doc)
 
-        # Verify document and chunks exist
+        # Verify document, chunks, and sentences exist
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM documents WHERE id = ?", (doc_id,))
         assert cursor.fetchone()[0] == 1
         cursor.execute("SELECT COUNT(*) FROM chunks WHERE document_id = ?", (doc_id,))
         assert cursor.fetchone()[0] == 2
+        cursor.execute(
+            """
+            SELECT COUNT(*) FROM sentences
+            WHERE chunk_id IN (SELECT id FROM chunks WHERE document_id = ?)
+        """,
+            (doc_id,),
+        )
+        assert cursor.fetchone()[0] == 3
 
         # Remove document
         success = repo.remove_document(doc_id)
 
         assert success is True
 
-        # Verify document and chunks are removed
+        # Verify document, chunks, and sentences are removed
         cursor.execute("SELECT COUNT(*) FROM documents WHERE id = ?", (doc_id,))
         assert cursor.fetchone()[0] == 0
         cursor.execute("SELECT COUNT(*) FROM chunks WHERE document_id = ?", (doc_id,))
+        assert cursor.fetchone()[0] == 0
+        cursor.execute(
+            """
+            SELECT COUNT(*) FROM sentences
+            WHERE chunk_id IN (SELECT id FROM chunks WHERE document_id = ?)
+        """,
+            (doc_id,),
+        )
         assert cursor.fetchone()[0] == 0
 
     def test_remove_document_not_found(self, db_conn):

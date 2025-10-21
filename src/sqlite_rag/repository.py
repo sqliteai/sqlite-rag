@@ -104,7 +104,7 @@ class Repository:
         return cursor.fetchone() is not None
 
     def remove_document(self, document_id: str) -> bool:
-        """Remove document and its chunks by document ID"""
+        """Remove document and its related resources by document ID"""
         cursor = self._conn.cursor()
 
         # Check if document exists
@@ -114,11 +114,29 @@ class Repository:
         if cursor.fetchone()["total"] == 0:
             return False
 
-        # Remove chunks first
+        # Delete sentences
         cursor.execute(
-            "DELETE FROM chunks_fts WHERE rowid IN (SELECT rowid FROM chunks WHERE document_id = ?)",
+            """
+            DELETE FROM sentences
+                WHERE chunk_id IN (
+                    SELECT id FROM chunks WHERE document_id = ?
+                )
+        """,
             (document_id,),
         )
+
+        # Delete chunks FTS
+        cursor.execute(
+            """
+            DELETE FROM chunks_fts
+            WHERE rowid IN (
+                SELECT rowid FROM chunks WHERE document_id = ?
+            )
+        """,
+            (document_id,),
+        )
+
+        # Delete chunks
         cursor.execute("DELETE FROM chunks WHERE document_id = ?", (document_id,))
 
         # Remove document
