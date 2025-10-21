@@ -1,0 +1,38 @@
+{
+    "name": "Python 3.11",
+    "image": "mcr.microsoft.com/devcontainers/python:3.11",
+    "runArgs": [
+        "--runtime",
+        "nvidia",
+        "--gpus",
+        "all",
+        // optional but make sure CUDA workloads are available
+        "--env",
+        "NVIDIA_VISIBLE_DEVICES=all",
+        // optional but make sure CUDA workloads are available
+        "--env",
+        "NVIDIA_DRIVER_CAPABILITIES=compute,utility"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.black-formatter",
+                "ms-python.flake8",
+                "ms-python.isort",
+                "ms-python.vscode-pylance",
+                "ms-python.python",
+                "ms-python.debugpy",
+                "ms-python.vscode-python-envs",
+                "hbenl.vscode-test-explorer"
+            ]
+        }
+    },
+    "hostRequirements": {
+        "gpu": "optional"
+    },
+    "remoteEnv": {
+        // optional but make sure CUDA workloads are available
+        "NVIDIA_VISIBLE_DEVICES": "all",
+        "NVIDIA_DRIVER_CAPABILITIES": "compute,utility"
+    }
+}

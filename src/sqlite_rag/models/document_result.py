@@ -42,8 +42,9 @@ class DocumentResult:
             return self.chunk_content[:max_chars]
 
         # Sort by start_offset to maintain document order
-        top_sentences.sort(
-            key=lambda s: s.start_offset if s.start_offset is not None else -1
+        top_sentences = sorted(
+            top_sentences,
+            key=lambda s: s.start_offset if s.start_offset is not None else -1,
         )
 
         preview_parts = []

@@ -1,5 +1,6 @@
 import sqlite3
 import tempfile
+from collections.abc import Generator
 
 import pytest
 
@@ -26,7 +27,7 @@ def db_conn():
 
 
 @pytest.fixture
-def engine(db_conn) -> Engine:
+def engine(db_conn) -> Generator[Engine, None, None]:
     conn, settings = db_conn
 
     engine = Engine(
@@ -39,4 +40,11 @@ def engine(db_conn) -> Engine:
     engine.quantize()
     engine.create_new_context()
 
-    return engine
+    yield engine
+
+    # Cleanup resources to prevent segfaults in Python 3.11
+    # Must explicitly free resources before garbage collection
+    try:
+        engine.close()
+    except Exception:
+        pass
