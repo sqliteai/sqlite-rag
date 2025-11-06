@@ -76,7 +76,29 @@ class Settings:
     # Zero means no limit
     max_chunks_per_document: int = 1000
     # Number of top sentences to return per document
-    top_k_sentences: int = 3
+    top_k_sentences: int = 10
+
+    #
+    # Text generation
+    #
+
+    # gen_model_path: str = (
+    #     "./models/unsloth/gemma-3-270m-it-GGUF/gemma-3-270m-it-Q8_0.gguf"
+    # )
+    gen_model_path: str = "./models/unsloth/gemma-3-1b-it-GGUF/gemma-3-1b-it-Q8_0.gguf"
+
+    # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text
+    other_gen_model_options: str = ""
+    # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createoptions-text
+    other_gen_context_options: str = (
+        "n_ctx=6000,context_size=6000,max_tokens=3000,n_threads=8,n_predict=800"
+    )
+
+    context_size: int = 2048
+    # Max input tokens to the model for generation
+    max_tokens: int = 2048
+
+    n_predict: int = 400
 
     def get_embeddings_context_options(self) -> str:
         """Get the context options for embeddings generation."""
@@ -91,6 +113,20 @@ class Settings:
         return ",".join(f"{k}={v}" for k, v in options.items()) + (
             f",{self.other_model_context_options}"
             if self.other_model_context_options
+            else ""
+        )
+
+    def get_generation_context_options(self) -> str:
+        """Get the context options for text generation."""
+        options = {
+            "context_size": self.context_size,
+            "max_tokens": self.max_tokens,
+            "n_predict": self.n_predict,
+        }
+
+        return ",".join(f"{k}={v}" for k, v in options.items()) + (
+            f",{self.other_gen_context_options}"
+            if self.other_gen_context_options
             else ""
         )
 

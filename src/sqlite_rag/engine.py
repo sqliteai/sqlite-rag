@@ -316,6 +316,79 @@ class Engine:
 
         return sentences[:top_k]
 
+    def create_new_chat(self) -> None:
+        """Create a new LLM chat context with empty history."""
+        # self._conn.execute(
+        #     "SELECT llm_context_create(?);", (self._settings.other_gen_context_options,)
+        # )
+        # self._conn.execute("SELECT llm_chat_create();")
+
+    def ask(self, query: str) -> str:
+        """Generate an answer to the query using the LLM."""
+        results = self.search(query, top_k=10)
+        results = results[:3]
+
+        context = ""
+        for result in results:
+            # if result.combined_rank < 0.3:
+            print(
+                f"doc uri: {result.document.uri}, vector: {result.vec_distance}, fts: {result.fts_score}, score: {result.combined_rank}"
+            )
+            preview = result.document.content[:5000].replace("\n", "\\n")
+            context += f"{preview}\n\n"
+
+        prompt = query
+        if context != "":
+            # prompt = f"""You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say you that don't know. Use three sentences maximum and keep the answer coincise.
+            prompt = f"""Answer the question based only on the following documents.
+Answer with the summary of the documents provided.
+Do **NOT** include any introductory phrases, titles, or prefixes such as "Answer:", "The answer is:", "Final Answer:", or "Based on the context,". Start your response with the answer itself:
+
+{context}
+
+{query}
+"""
+
+        print("---\n", prompt)
+        print(
+            "token count:",
+            self._conn.execute(
+                "SELECT llm_token_count(?) AS token_count;", (prompt,)
+            ).fetchone()["token_count"],
+        )
+
+        self._conn.execute(
+            "SELECT llm_model_load(?, ?);",
+            (self._settings.gen_model_path, self._settings.other_gen_model_options),
+        )
+        self._conn.execute(
+            "SELECT llm_context_create(?);", (self._settings.other_gen_context_options,)
+        )
+        self._conn.execute("SELECT llm_chat_create();")
+
+        self._conn.executescript(
+            """
+            SELECT llm_sampler_init_temp(1.0);
+            SELECT llm_sampler_init_top_k(64);
+            SELECT llm_sampler_init_top_p(0.95, 1);
+            SELECT llm_sampler_init_min_p(0.0, 1);
+            SELECT llm_sampler_init_dist(-1);
+            SELECT llm_sampler_init_penalties(1024, 1.1, 0.0, 0.0);
+        """
+        )
+
+        r = self._conn.execute("SELECT llm_chat_respond(?) AS response;", (prompt,))
+
+        response = r.fetchone()[0]
+        print(
+            "token count:",
+            self._conn.execute(
+                "SELECT llm_token_count(?) AS token_count;", (response,)
+            ).fetchone()["token_count"],
+        )
+
+        return response
+
     def versions(self) -> dict:
         """Get versions of the loaded extensions."""
         cursor = self._conn.cursor()

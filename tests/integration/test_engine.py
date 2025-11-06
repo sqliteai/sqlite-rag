@@ -320,3 +320,12 @@ class TestEngineSearchSentences:
         assert len(results) > 0
         assert results[0].start_offset == 61  # it's the second sentence
         assert results[0].end_offset == 89
+
+
+class TestEngineAsk:
+    def test_ask(self, engine: Engine):
+        engine.create_new_chat()
+
+        result = engine.ask("what's the difference between offsync and sqlite sync?")
+        assert isinstance(result, str)
+        print(result)

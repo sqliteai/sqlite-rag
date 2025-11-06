@@ -318,6 +318,21 @@ class SQLiteRag:
 
         return self._engine.search(query, top_k=top_k)
 
+    def ask(self, question: str, new_context: bool = True) -> str:
+        """Generate an answer to the question using the LLM.
+
+        Args:
+            question: The question string
+            new_context: Whether to create a new LLM context for this question
+        """
+        self._ensure_initialized()
+        if new_context:
+            self._engine.create_new_context()
+
+        self._engine.create_new_chat()
+
+        return self._engine.ask(question)
+
     def get_settings(self) -> dict:
         """Get settings and more useful information"""
         versions = self._engine.versions()

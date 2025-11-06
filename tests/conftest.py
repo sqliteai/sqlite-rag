@@ -1,5 +1,4 @@
 import sqlite3
-import tempfile
 from collections.abc import Generator
 
 import pytest
@@ -13,17 +12,17 @@ from sqlite_rag.settings import Settings
 
 @pytest.fixture
 def db_conn():
-    with tempfile.NamedTemporaryFile(suffix=".db") as tmp_db:
-        settings = Settings()
+    # with tempfile.NamedTemporaryFile(suffix=".db") as tmp_db:
+    settings = Settings()
 
-        conn = sqlite3.connect(tmp_db.name)
-        conn.row_factory = sqlite3.Row
+    conn = sqlite3.connect("./documentation_ai.sqlite")
+    conn.row_factory = sqlite3.Row
 
-        Database.initialize(conn, settings)
+    Database.initialize(conn, settings)
 
-        yield conn, settings
+    yield conn, settings
 
-        conn.close()
+    conn.close()
 
 
 @pytest.fixture

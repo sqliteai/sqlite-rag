@@ -469,6 +469,24 @@ def search(
 
 
 @app.command()
+def ask(
+    ctx: typer.Context,
+    question: str,
+):
+    """Ask a question and get an answer using the LLM"""
+    rag_context = ctx.obj["rag_context"]
+    start_time = time.time()
+
+    rag = rag_context.get_rag(require_existing=True)
+    answer = rag.ask(question)
+
+    elapsed_time = time.time() - start_time
+
+    typer.echo(answer)
+    typer.echo(f"{elapsed_time:.3f} seconds")
+
+
+@app.command()
 def quantize(
     ctx: typer.Context,
     preload: bool = typer.Option(
