@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+import itertools
 import json
 import os
 import shlex
+import sys
+import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 from prompt_toolkit import prompt
@@ -13,6 +16,10 @@ from prompt_toolkit.history import InMemoryHistory
 from sqlite_rag.database import Database
 from sqlite_rag.settings import SettingsManager
 
+from .cli_configure import (
+    build_configure_signature,
+    filter_setting_updates,
+)
 from .formatters import get_formatter
 from .sqliterag import SQLiteRag
 
@@ -112,74 +119,8 @@ def show_settings(ctx: typer.Context):
 @app.command("configure")
 def configure_settings(
     ctx: typer.Context,
-    force: bool = typer.Option(
-        False,
-        "-f",
-        "--force",
-        help="Force update even if critical settings change (like model or embedding dimension)",
-    ),
-    model_path: Optional[str] = typer.Option(
-        None, help="Path to the embedding model file (.gguf)"
-    ),
-    model_options: Optional[str] = typer.Option(
-        None,
-        help="options specific for the model: See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text",
-    ),
-    model_context_options: Optional[str] = typer.Option(
-        None,
-        help="Options specific for model context creation. See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createcontext_settings-text",
-    ),
-    embedding_dim: Optional[int] = typer.Option(
-        None, help="Dimension of the embedding vectors"
-    ),
-    vector_type: Optional[str] = typer.Option(
-        None, help="Vector storage type (FLOAT16, FLOAT32, etc.)"
-    ),
-    other_vector_options: Optional[str] = typer.Option(
-        None, help="Additional vector configuration"
-    ),
-    chunk_size: Optional[int] = typer.Option(
-        None, help="Size of text chunks for processing"
-    ),
-    chunk_overlap: Optional[int] = typer.Option(
-        None, help="Token overlap between consecutive chunks"
-    ),
-    quantize_scan: Optional[bool] = typer.Option(
-        None, help="Whether to quantize vector for faster search"
-    ),
-    quantize_preload: Optional[bool] = typer.Option(
-        None, help="Whether to preload quantized vectors in memory for faster search"
-    ),
-    weight_fts: Optional[float] = typer.Option(
-        None, help="Weight for full-text search results"
-    ),
-    weight_vec: Optional[float] = typer.Option(
-        None, help="Weight for vector search results"
-    ),
-    use_gpu: Optional[bool] = typer.Option(
-        None, help="Whether to allow sqlite-ai extension to use the GPU"
-    ),
-    no_prompt_templates: bool = typer.Option(
-        False,
-        "--no-prompt-templates",
-        help="Disable prompt templates for embedding generation",
-    ),
-    prompt_template_retrieval_document: Optional[str] = typer.Option(
-        None,
-        help="Template for retrieval document prompts. Supported placeholders are `{title}` and `{content}`",
-    ),
-    prompt_template_retrieval_query: Optional[str] = typer.Option(
-        None,
-        help="Template for retrieval query prompts, use `{content}` as placeholder",
-    ),
-    max_document_size_bytes: Optional[int] = typer.Option(
-        None,
-        help="Maximum size of a document to process (in bytes) before being truncated",
-    ),
-    max_chunks_per_document: Optional[int] = typer.Option(
-        None,
-        help="Maximum number of chunks to generate per document (0 for no limit)",
-    ),
+    force: bool = False,
+    **settings_values: Any,
 ):
     """Configure settings for the RAG system.
 
@@ -189,32 +130,7 @@ def configure_settings(
     """
     rag_context = ctx.obj["rag_context"]
 
-    # Build updates dict from all provided parameters
-    updates = {
-        "model_path": model_path,
-        "model_options": model_options,
-        "model_context_options": model_context_options,
-        "use_gpu": use_gpu,
-        "embedding_dim": embedding_dim,
-        "vector_type": vector_type,
-        "other_vector_options": other_vector_options,
-        "chunk_size": chunk_size,
-        "chunk_overlap": chunk_overlap,
-        "quantize_scan": quantize_scan,
-        "quantize_preload": quantize_preload,
-        "weight_fts": weight_fts,
-        "weight_vec": weight_vec,
-        "use_prompt_templates": (
-            False if no_prompt_templates else None
-        ),  # Set only if True
-        "prompt_template_retrieval_document": prompt_template_retrieval_document,
-        "prompt_template_retrieval_query": prompt_template_retrieval_query,
-        "max_document_size_bytes": max_document_size_bytes,
-        "max_chunks_per_document": max_chunks_per_document,
-    }
-    print(updates)
-    # Filter out None values (unset options)
-    updates = {k: v for k, v in updates.items() if v is not None}
+    updates = filter_setting_updates(settings_values)
 
     if not updates:
         typer.echo("No settings provided to configure.")
@@ -227,6 +143,9 @@ def configure_settings(
 
     show_settings(ctx)
     typer.echo("Settings updated.")
+
+
+configure_settings.__signature__ = build_configure_signature()
 
 
 @app.command()
@@ -472,18 +391,78 @@ def search(
 def ask(
     ctx: typer.Context,
     question: str,
+    use_last_chat: bool = typer.Option(
+        False,
+        "--use-last-chat",
+        help="Reuse the previous chat session (REPL mode only)",
+    ),
 ):
     """Ask a question and get an answer using the LLM"""
     rag_context = ctx.obj["rag_context"]
+
+    if use_last_chat and not rag_context.in_repl:
+        raise typer.BadParameter(
+            "--use-last-chat is only available when running the REPL."
+        )
+
     start_time = time.time()
 
     rag = rag_context.get_rag(require_existing=True)
-    answer = rag.ask(question)
+    cursor = rag.ask(question, reuse_chat=use_last_chat)
+
+    spinner_stop = threading.Event()
+
+    def spinner() -> None:
+        frames = itertools.cycle("\\|/-")
+        while not spinner_stop.is_set():
+            sys.stdout.write(f"\rthinking {next(frames)}")
+            sys.stdout.flush()
+            time.sleep(0.1)
+        sys.stdout.write("\r" + " " * 20 + "\r")
+        sys.stdout.flush()
+
+    spinner_thread = threading.Thread(target=spinner, daemon=True)
+    spinner_thread.start()
+
+    has_tokens = False
+    token_count = 0
+    try:
+        while True:
+            row = cursor.fetchone()
+            if row is None:
+                break
+
+            token = row["reply"]
+            if token is None:
+                continue
+
+            if not has_tokens:
+                spinner_stop.set()
+                spinner_thread.join()
+                sys.stdout.write("\n")
+                has_tokens = True
+
+            sys.stdout.write(token)
+            sys.stdout.flush()
+            token_count += 1
+    finally:
+        cursor.close()
+
+    spinner_stop.set()
+    spinner_thread.join()
+
+    if has_tokens:
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    else:
+        typer.echo("\nNo response received.")
 
     elapsed_time = time.time() - start_time
-
-    typer.echo(answer)
-    typer.echo(f"{elapsed_time:.3f} seconds")
+    stats_line = f"{elapsed_time:.3f} seconds"
+    if token_count > 0 and elapsed_time > 0:
+        tokens_per_sec = token_count / elapsed_time
+        stats_line = f"{stats_line} ({token_count} tokens, {tokens_per_sec:.2f} tok/s)"
+    typer.echo(stats_line)
 
 
 @app.command()

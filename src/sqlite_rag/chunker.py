@@ -1,8 +1,8 @@
 import math
-import sqlite3
 from typing import List, Optional
 
 from sqlite_rag.models.document import Document
+from sqlite_rag.models.llm_model import LLMModel
 
 from .models.chunk import Chunk
 from .settings import Settings
@@ -11,8 +11,8 @@ from .settings import Settings
 class Chunker:
     ESTIMATE_CHARS_PER_TOKEN = 4
 
-    def __init__(self, conn: sqlite3.Connection, settings: Settings):
-        self._conn = conn
+    def __init__(self, llm_model: LLMModel, settings: Settings):
+        self.llm_model = llm_model
         self._settings = settings
 
     def chunk(self, document: Document) -> list[Chunk]:
@@ -67,7 +67,8 @@ class Chunker:
         if len(text) > self._settings.chunk_size * self.ESTIMATE_CHARS_PER_TOKEN * 2:
             return self._estimate_tokens_count(text)
 
-        cursor = self._conn.execute("SELECT llm_token_count(?) AS count", (text,))
+        conn = self.llm_model.ensure_loaded()
+        cursor = conn.execute("SELECT llm_token_count(?) AS count", (text,))
         return cursor.fetchone()["count"]
 
     def _estimate_tokens_count(self, text: str) -> int:

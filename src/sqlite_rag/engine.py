@@ -1,11 +1,12 @@
 import json
 import re
 import sqlite3
-from pathlib import Path
 from typing import List
 
-from sqlite_rag.logger import Logger
+from sqlite_rag.errors import ContextSizeExceededError
+from sqlite_rag.logger import Logger, LogLevel
 from sqlite_rag.models.document_result import DocumentResult
+from sqlite_rag.models.llm_model import LLMModel
 from sqlite_rag.models.sentence_result import SentenceResult
 from sqlite_rag.sentence_splitter import SentenceSplitter
 
@@ -20,28 +21,18 @@ class Engine:
 
     def __init__(
         self,
-        conn: sqlite3.Connection,
+        embedding_model: LLMModel,
+        text_generation_model: LLMModel,
         settings: Settings,
         chunker: Chunker,
         sentence_splitter: SentenceSplitter,
     ):
-        self._conn = conn
+        self._embedding_model = embedding_model
+        self._text_generation_model = text_generation_model
         self._settings = settings
         self._chunker = chunker
         self._sentence_splitter = sentence_splitter
-        self._logger = Logger()
-
-    def load_model(self):
-        """Load the model model from the specified path."""
-
-        model_path = Path(self._settings.model_path).resolve()
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model file not found at {model_path}")
-
-        self._conn.execute(
-            "SELECT llm_model_load(?, ?);",
-            (self._settings.model_path, self._settings.other_model_options),
-        )
+        self._logger = Logger(LogLevel.DEBUG)
 
     def process(self, document: Document) -> Document:
         if not document.get_title():
@@ -67,10 +58,10 @@ class Engine:
 
     def generate_embedding(self, text: str) -> bytes:
         """Generate embedding for the given text."""
-        cursor = self._conn.cursor()
+        conn = self._embedding_model.ensure_loaded()
 
         try:
-            cursor.execute("SELECT llm_embed_generate(?) AS embedding", (text,))
+            cursor = conn.execute("SELECT llm_embed_generate(?) AS embedding", (text,))
         except sqlite3.Error as e:
             print(f"Error generating embedding for text\n: ```{text}```")
             raise e
@@ -84,43 +75,35 @@ class Engine:
 
     def quantize(self) -> None:
         """Quantize stored vector for faster search via quantized scan."""
-        cursor = self._conn.cursor()
+        conn = self._embedding_model.ensure_loaded()
+        cursor = conn.cursor()
 
         cursor.execute("SELECT vector_quantize('chunks', 'embedding');")
         cursor.execute("SELECT vector_quantize('sentences', 'embedding');")
 
-        self._conn.commit()
+        conn.commit()
         self._logger.debug("Quantization completed.")
 
     def quantize_preload(self) -> None:
         """Preload quantized vectors into memory for faster search."""
-        cursor = self._conn.cursor()
+        cursor = self._embedding_model.ensure_loaded().cursor()
 
         cursor.execute("SELECT vector_quantize_preload('chunks', 'embedding');")
         cursor.execute("SELECT vector_quantize_preload('sentences', 'embedding');")
 
     def quantize_cleanup(self) -> None:
         """Clean up internal structures related to a previously quantized table/column."""
-        cursor = self._conn.cursor()
+        conn = self._embedding_model.ensure_loaded()
+        cursor = conn.cursor()
 
         cursor.execute("SELECT vector_quantize_cleanup('chunks', 'embedding');")
         cursor.execute("SELECT vector_quantize_cleanup('sentences', 'embedding');")
 
-        self._conn.commit()
-
-    def create_new_context(self) -> None:
-        """Create a new LLM context with optional runtime overrides."""
-        cursor = self._conn.cursor()
-        context_options = self._settings.get_embeddings_context_options()
-
-        cursor.execute(
-            "SELECT llm_context_create(?);",
-            (context_options,),
-        )
+        conn.commit()
 
     def free_context(self) -> None:
         """Release resources associated with the current context."""
-        cursor = self._conn.cursor()
+        cursor = self._embedding_model.ensure_loaded().cursor()
 
         cursor.execute("SELECT llm_context_free();")
 
@@ -163,7 +146,7 @@ class Engine:
             else "vector_full_scan"
         )
 
-        cursor = self._conn.cursor()
+        cursor = self._embedding_model.ensure_loaded().cursor()
 
         cursor.execute(
             f"""
@@ -218,6 +201,7 @@ class Engine:
                 JOIN chunks ON chunks.id = matches.chunk_id
                 JOIN documents ON documents.id = chunks.document_id
             ORDER BY combined_rank DESC
+            LIMIT :k
             ;
             """,  # nosec B608
             {
@@ -262,9 +246,9 @@ class Engine:
             else "vector_full_scan_stream"
         )
 
-        cursor = self._conn.cursor()
+        conn = self._embedding_model.ensure_loaded()
 
-        cursor.execute(
+        cursor = conn.execute(
             f"""
             WITH vec_matches AS (
                 SELECT
@@ -318,29 +302,35 @@ class Engine:
 
     def create_new_chat(self) -> None:
         """Create a new LLM chat context with empty history."""
-        # self._conn.execute(
-        #     "SELECT llm_context_create(?);", (self._settings.other_gen_context_options,)
-        # )
-        # self._conn.execute("SELECT llm_chat_create();")
+        conn = self._text_generation_model.ensure_loaded()
 
-    def ask(self, query: str) -> str:
+        conn.execute(
+            "SELECT llm_context_create(?);",
+            (self._settings.get_context_options_text_generation(),),
+        )
+
+        conn.execute("SELECT llm_chat_create();")
+
+    def ask(self, query: str) -> sqlite3.Cursor:
         """Generate an answer to the query using the LLM."""
-        results = self.search(query, top_k=10)
-        results = results[:3]
+        results = self.search(query, top_k=3)
 
         context = ""
         for result in results:
-            # if result.combined_rank < 0.3:
-            print(
+            self._logger.debug(
                 f"doc uri: {result.document.uri}, vector: {result.vec_distance}, fts: {result.fts_score}, score: {result.combined_rank}"
             )
-            preview = result.document.content[:5000].replace("\n", "\\n")
-            context += f"{preview}\n\n"
+            if result.combined_rank > self._settings.results_threshold:
+                self._logger.debug("\r\b - taken")
+                # TODO: how to improve context limit?
+                preview = result.document.content[:5000].replace("\n", "\\n")
+                context += f"{preview}\n\n"
 
         prompt = query
         if context != "":
             # prompt = f"""You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say you that don't know. Use three sentences maximum and keep the answer coincise.
-            prompt = f"""Answer the question based only on the following documents.
+            # prompt = prompt = f"""Answer the question based only on the following documents. Answer with the summary of the documents provided. Do **NOT** include any introductory phrases, titles, or prefixes such as "Answer:", "The answer is:", "Final Answer:", or "Based on the context,". Start your response with the answer itself:"""
+            prompt = f"""Answer the question based on the following documents.
 Answer with the summary of the documents provided.
 Do **NOT** include any introductory phrases, titles, or prefixes such as "Answer:", "The answer is:", "Final Answer:", or "Based on the context,". Start your response with the answer itself:
 
@@ -348,51 +338,48 @@ Do **NOT** include any introductory phrases, titles, or prefixes such as "Answer
 
 {query}
 """
+        conn = self._text_generation_model.ensure_loaded()
 
-        print("---\n", prompt)
-        print(
-            "token count:",
-            self._conn.execute(
-                "SELECT llm_token_count(?) AS token_count;", (prompt,)
-            ).fetchone()["token_count"],
+        # TODO: token count is duplicated in Chunker class
+        context_size = conn.execute("SELECT llm_token_count(?);", (prompt,)).fetchone()[
+            0
+        ]
+
+        if context_size > self._settings.context_size_text_gen:
+            raise ContextSizeExceededError(
+                f"Prompt size ({context_size} tokens) exceeds context size limit ({self._settings.context_size_text_gen} tokens). The model may not be able to process the entire prompt."
+            )
+
+        conn.execute("SELECT llm_sampler_init_temp(?);", (self._settings.temp,))
+        conn.execute("SELECT llm_sampler_init_top_k(?);", (self._settings.top_k,))
+        conn.execute(
+            "SELECT llm_sampler_init_top_p(?, ?);",
+            (self._settings.top_p, self._settings.top_p_min_keep),
         )
-
-        self._conn.execute(
-            "SELECT llm_model_load(?, ?);",
-            (self._settings.gen_model_path, self._settings.other_gen_model_options),
+        conn.execute(
+            "SELECT llm_sampler_init_min_p(?, ?);",
+            (self._settings.min_p, self._settings.min_p_min_keep),
         )
-        self._conn.execute(
-            "SELECT llm_context_create(?);", (self._settings.other_gen_context_options,)
+        conn.execute(
+            "SELECT llm_sampler_init_penalties(?, ?, ?, ?);",
+            (
+                self._settings.penaltiy_n_tokens,
+                self._settings.penalty_repeat,
+                self._settings.penalty_frequency,
+                self._settings.penalty_presence,
+            ),
         )
-        self._conn.execute("SELECT llm_chat_create();")
+        conn.execute("SELECT llm_sampler_init_dist(?);", (self._settings.random_seed,))
 
-        self._conn.executescript(
-            """
-            SELECT llm_sampler_init_temp(1.0);
-            SELECT llm_sampler_init_top_k(64);
-            SELECT llm_sampler_init_top_p(0.95, 1);
-            SELECT llm_sampler_init_min_p(0.0, 1);
-            SELECT llm_sampler_init_dist(-1);
-            SELECT llm_sampler_init_penalties(1024, 1.1, 0.0, 0.0);
-        """
-        )
+        # With the cursor response can be streamed by fetching single rows
+        cursor = conn.execute("SELECT reply FROM llm_chat(?);", (prompt,))
 
-        r = self._conn.execute("SELECT llm_chat_respond(?) AS response;", (prompt,))
-
-        response = r.fetchone()[0]
-        print(
-            "token count:",
-            self._conn.execute(
-                "SELECT llm_token_count(?) AS token_count;", (response,)
-            ).fetchone()["token_count"],
-        )
-
-        return response
+        return cursor
 
     def versions(self) -> dict:
         """Get versions of the loaded extensions."""
-        cursor = self._conn.cursor()
-        cursor.execute(
+        conn = self._embedding_model.ensure_loaded()
+        cursor = conn.execute(
             "SELECT ai_version() AS ai_version, vector_version() AS vector_version;"
         )
         row = cursor.fetchone()
@@ -401,16 +388,3 @@ Do **NOT** include any introductory phrases, titles, or prefixes such as "Answer
             "ai_version": row["ai_version"],
             "vector_version": row["vector_version"],
         }
-
-    def close(self):
-        """Close the database connection."""
-        if self._conn:
-            try:
-                self._conn.execute("SELECT llm_model_free();")
-            except sqlite3.ProgrammingError:
-                # When connection is already closed the model
-                # is already freed.
-                pass
-
-    def __del__(self):
-        self.close()

@@ -3,13 +3,15 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Optional
 
+from sqlite_rag.database import Database
 from sqlite_rag.extractor import Extractor
 from sqlite_rag.logger import Logger
 from sqlite_rag.models.document_result import DocumentResult
+from sqlite_rag.models.llm_model import LLMModel
 from sqlite_rag.sentence_splitter import SentenceSplitter
 
 from .chunker import Chunker
-from .database import Database
+from .connection_registry import ConnectionRegistry
 from .engine import Engine
 from .models.document import Document
 from .reader import FileReader
@@ -18,29 +20,37 @@ from .settings import Settings, SettingsManager
 
 
 class SQLiteRag:
-    def __init__(self, connection: sqlite3.Connection, settings: Settings):
+    def __init__(self, connections: ConnectionRegistry, settings: Settings):
         self._settings = settings
         self._logger = Logger()
 
-        self._conn = connection
+        self._connections = connections
 
-        self._repository = Repository(self._conn, settings)
-        self._chunker = Chunker(self._conn, settings)
+        self._embedding_model = LLMModel(
+            model_path=settings.model_path,
+            model_options=settings.other_model_options,
+            context_options=settings.get_context_options_embedding(),
+            registry=self._connections,
+            connection_name=ConnectionRegistry.EMBEDDING,
+        )
+        self._text_generation_model = LLMModel(
+            model_path=settings.model_path_text_gen,
+            model_options=settings.other_model_options_text_gen,
+            context_options=settings.get_context_options_text_generation(),
+            registry=self._connections,
+            connection_name=ConnectionRegistry.TEXT_GEN,
+        )
+
+        self._repository = Repository(self._connections.get_conn_embedding(), settings)
+        self._chunker = Chunker(self._embedding_model, settings)
         self._engine = Engine(
-            self._conn,
+            self._embedding_model,
+            self._text_generation_model,
             settings,
             chunker=self._chunker,
             sentence_splitter=SentenceSplitter(),
         )
         self._extractor = Extractor()
-
-        self.ready = False
-
-    def _ensure_initialized(self):
-        if not self.ready:
-            self._engine.load_model()
-
-        self.ready = True
 
     @staticmethod
     def create(
@@ -63,14 +73,17 @@ class SQLiteRag:
         if require_existing and not Path(db_path).exists():
             raise FileNotFoundError(f"Database file {db_path} does not exist.")
 
-        conn = Database.new_connection(db_path)
+        with Database.new_connection(db_path) as conn:
+            settings_manager = SettingsManager(conn)
+            current_settings = settings_manager.configure(settings)
 
-        settings_manager = SettingsManager(conn)
-        current_settings = settings_manager.configure(settings)
+        registry = ConnectionRegistry.create(
+            db_path=db_path,
+            settings=current_settings,
+            require_existing=require_existing,
+        )
 
-        Database.initialize(conn, current_settings)
-
-        return SQLiteRag(conn, current_settings)
+        return SQLiteRag(registry, current_settings)
 
     def add(
         self,
@@ -91,8 +104,6 @@ class SQLiteRag:
             only_extensions: Only process these file extensions from the supported list (e.g. ['py', 'js'])
             exclude_extensions: Skip these file extensions (e.g. ['py', 'js'])
         """
-        self._ensure_initialized()
-
         if not Path(path).exists():
             raise FileNotFoundError(f"{path} does not exist.")
 
@@ -104,8 +115,6 @@ class SQLiteRag:
             only_extensions=only_extensions,
             exclude_extensions=exclude_extensions,
         )
-
-        self._engine.create_new_context()
 
         processed = 0
         total_to_process = len(files_to_process)
@@ -163,11 +172,8 @@ class SQLiteRag:
         self, text: str, uri: Optional[str] = None, metadata: dict = {}
     ) -> None:
         """Add a text content into the database"""
-        self._ensure_initialized()
-
         document = Document(content=text, uri=uri, metadata=metadata.copy())
 
-        self._engine.create_new_context()
         document = self._engine.process(document)
 
         self._repository.add_document(document)
@@ -179,19 +185,15 @@ class SQLiteRag:
 
     def list_documents(self) -> list[Document]:
         """List all documents in the database"""
-        self._ensure_initialized()
 
         return self._repository.list_documents()
 
     def find_document(self, identifier: str) -> Document | None:
         """Find document by ID or URI"""
-        self._ensure_initialized()
         return self._repository.find_document_by_id_or_uri(identifier)
 
     def remove_document(self, identifier: str) -> bool:
         """Remove document by ID or URI"""
-        self._ensure_initialized()
-
         # First find the document to get its ID
         document = self._repository.find_document_by_id_or_uri(identifier)
         if not document or not document.id:
@@ -201,15 +203,12 @@ class SQLiteRag:
 
     def rebuild(self, remove_missing: bool = False) -> dict:
         """Rebuild embeddings and full-text index for all documents"""
-        self._ensure_initialized()
 
         documents = self._repository.list_documents()
         total_docs = len(documents)
         reprocessed = 0
         not_found = 0
         removed = 0
-
-        self._engine.create_new_context()
 
         for i, doc in enumerate(documents):
             doc_id = doc.id or ""
@@ -284,11 +283,13 @@ class SQLiteRag:
 
     def reset(self) -> bool:
         """Reset/clear the entire database by deleting and recreating it"""
-        db_path = self._conn.execute("PRAGMA database_list;").fetchone()[2]
+        conn = self._connections.get_conn_embedding()
+
+        db_path = conn.execute("PRAGMA database_list;").fetchone()[2]
 
         try:
             # Close the database connection
-            self._conn.close()
+            conn.close()
 
             # Delete the database file if it exists
             if Path(db_path).exists():
@@ -301,35 +302,27 @@ class SQLiteRag:
             self._logger.error(f"Error during database reset: {e}")
             return False
 
-    def search(
-        self, query: str, top_k: int = 10, new_context: bool = True
-    ) -> list[DocumentResult]:
+    def search(self, query: str, top_k: int = 10) -> list[DocumentResult]:
         """Search for documents matching the query.
 
         Args:
             query: The search query string
             top_k: Number of top results to search in both semantic and FTS search.
                 Number of documents may be higher.
-            new_context: Whether to create a new LLM context for this search
         """
-        self._ensure_initialized()
-        if new_context:
-            self._engine.create_new_context()
 
         return self._engine.search(query, top_k=top_k)
 
-    def ask(self, question: str, new_context: bool = True) -> str:
+    def ask(self, question: str, reuse_chat: bool = False) -> sqlite3.Cursor:
         """Generate an answer to the question using the LLM.
 
         Args:
             question: The question string
             new_context: Whether to create a new LLM context for this question
+            reuse_chat: Reuse the previous chat session when available
         """
-        self._ensure_initialized()
-        if new_context:
-            self._engine.create_new_context()
-
-        self._engine.create_new_chat()
+        if not reuse_chat:
+            self._engine.create_new_chat()
 
         return self._engine.ask(question)
 
@@ -340,19 +333,18 @@ class SQLiteRag:
 
     def quantize_vectors(self) -> None:
         """Quantize vectors for faster search"""
-        self._ensure_initialized()
         self._engine.quantize()
 
     def quantize_cleanup(self) -> None:
         """Clean up quantization structures"""
-        self._ensure_initialized()
         self._engine.quantize_cleanup()
 
     def close(self) -> None:
         """Free up resources"""
-        self._engine.close()
-        if self._conn:
-            self._conn.close()
+        self._embedding_model.unload()
+        self._text_generation_model.unload()
+
+        self._connections.close_all()
 
     def __del__(self):
         self.close()

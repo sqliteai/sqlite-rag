@@ -16,8 +16,7 @@ class Database:
         return conn
 
     @staticmethod
-    def initialize(conn: sqlite3.Connection, settings: Settings) -> sqlite3.Connection:
-        """Initialize the database with extensions and schema"""
+    def load_exetension_ai(conn: sqlite3.Connection, settings: Settings) -> None:
         conn.enable_load_extension(True)
         try:
             conn.load_extension(
@@ -28,6 +27,30 @@ class Database:
                     / "ai"
                 )
             )
+        except sqlite3.OperationalError as e:
+            raise RuntimeError(
+                "Failed to load extensions: "
+                + str(e)
+                + """\n
+                Install via pip:
+                    pip install sqlite-ai
+
+                See more:
+                    sqlite-ai: https://github.com/sqliteai/sqlite-ai/releases
+                """
+            ) from e
+        finally:
+            conn.enable_load_extension(False)
+
+        try:
+            conn.execute("SELECT ai_version();")
+        except sqlite3.OperationalError:
+            raise RuntimeError("Extensions are not loaded correctly.")
+
+    @staticmethod
+    def load_exetension_vector(conn: sqlite3.Connection, settings: Settings) -> None:
+        conn.enable_load_extension(True)
+        try:
             conn.load_extension(
                 str(importlib.resources.files("sqlite_vector.binaries") / "vector")
             )
@@ -37,28 +60,22 @@ class Database:
                 + str(e)
                 + """\n
                 Install via pip:
-                    pip install sqlite-ai sqliteai-vector
+                    pip install sqliteai-vector
 
                 See more:
-                    sqlite-ai: https://github.com/sqliteai/sqlite-ai/releases
                     sqlite-vector: https://github.com/sqliteai/sqlite-vector/releases
                 """
             ) from e
-        conn.enable_load_extension(False)
+        finally:
+            conn.enable_load_extension(False)
 
         try:
-            # Check if extensions are available
-            conn.execute("SELECT vector_version()")
-            conn.execute("SELECT ai_version()")
+            conn.execute("SELECT vector_version();")
         except sqlite3.OperationalError:
             raise RuntimeError("Extensions are not loaded correctly.")
 
-        Database._create_schema(conn, settings)
-
-        return conn
-
     @staticmethod
-    def _create_schema(conn: sqlite3.Connection, settings: Settings):
+    def initialize_schema(conn: sqlite3.Connection, settings: Settings):
         cursor = conn.cursor()
 
         cursor.execute(
@@ -107,6 +124,12 @@ class Database:
             CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(content, content='chunks', content_rowid='id');
         """
         )
+
+        conn.commit()
+
+    @staticmethod
+    def initialize_vector_store(conn: sqlite3.Connection, settings: Settings) -> None:
+        cursor = conn.cursor()
 
         cursor.execute(
             """

@@ -1,57 +1,113 @@
 import json
 import sqlite3
-from dataclasses import asdict, dataclass, fields, replace
+from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Any, Optional
 
 
 @dataclass
 class Settings:
+    """Runtime configuration for the RAG pipeline."""
 
     #
     # Model and embedding settings
     #
 
-    model_path: str = (
-        "./models/unsloth/embeddinggemma-300m-GGUF/embeddinggemma-300M-Q8_0.gguf"
+    model_path: str = field(
+        default=(
+            "./models/unsloth/embeddinggemma-300m-GGUF/" "embeddinggemma-300M-Q8_0.gguf"
+        ),
+        metadata={"help": "Path to the embedding model file (.gguf)"},
     )
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text
-    other_model_options: str = ""
+    other_model_options: str = field(
+        default="",
+        metadata={"help": "Additional options for the embedding model loader"},
+    )
 
     # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createoptions-text
-    other_model_context_options: str = ""
+    other_model_context_options: str = field(
+        default="",
+        metadata={"help": "Extra parameters for embedding context creation"},
+    )
 
     # How the model pools token embeddings into a single embedding
     # Options: "mean", "max", "min", "last", "first"
-    pooling_type: str = "mean"
+    pooling_type: str = field(
+        default="mean",
+        metadata={"help": "Pooling strategy for combining token embeddings"},
+    )
 
     # Allow the sqlite-ai extension to use the GPU
     # See: https://github.com/sqliteai/sqlite-ai
-    use_gpu = False
+    use_gpu: bool = field(
+        default=False,
+        metadata={
+            "help": "Allow sqlite-ai extension to use the GPU",
+            "cli_name": "use-gpu",
+        },
+    )
 
-    vector_type: str = "INT8"
-    embedding_dim: int = 768
+    # Best use the number of CPU available
+    n_thread: int = field(
+        default=4,
+        metadata={"help": "Number of CPU threads used for embeddings"},
+    )
 
-    other_vector_options: str = (
-        "distance=cosine"  # e.g. distance=metric,other=value,...
+    vector_type: str = field(
+        default="INT8",
+        metadata={"help": "Vector storage type (e.g. INT8, FLOAT16, FLOAT32)"},
+    )
+    embedding_dim: int = field(
+        default=768,
+        metadata={"help": "Dimension of each embedding vector"},
+    )
+
+    other_vector_options: str = field(
+        default="distance=cosine",
+        metadata={"help": "Extra vector options in key=value format"},
     )
 
     # It includes the overlap size and the prompt template length
-    chunk_size: int = 2048
+    chunk_size: int = field(
+        default=2048,
+        metadata={"help": "Token budget per chunk (overlap + prompt template)"},
+    )
     # Tokens overlap between chunks
-    chunk_overlap: int = 256
+    chunk_overlap: int = field(
+        default=256,
+        metadata={"help": "Number of tokens shared between consecutive chunks"},
+    )
 
     #
     # Search settings
     #
 
     # Whether to quantize the vector for faster search the full scan
-    quantize_scan: bool = True
+    quantize_scan: bool = field(
+        default=True,
+        metadata={
+            "help": "Quantize vectors for faster full collection scans",
+            "cli_name": "quantize-scan",
+        },
+    )
     # Load quantized vectors in memory for faster search
-    quantize_preload: bool = False
+    quantize_preload: bool = field(
+        default=False,
+        metadata={
+            "help": "Preload quantized vectors in memory",
+            "cli_name": "quantize-preload",
+        },
+    )
 
     # Weights for combining FTS and vector search results
-    weight_fts: float = 1.5
-    weight_vec: float = 1.0
+    weight_fts: float = field(
+        default=1.5,
+        metadata={"help": "Weight applied to full text search scores"},
+    )
+    weight_vec: float = field(
+        default=1.0,
+        metadata={"help": "Weight applied to vector similarity scores"},
+    )
 
     #
     # Prompt templates
@@ -61,46 +117,140 @@ class Settings:
     # More: https://huggingface.co/unsloth/embeddinggemma-300m-GGUF#prompt-instructions
     #
 
-    use_prompt_templates: bool = True
+    use_prompt_templates: bool = field(
+        default=True,
+        metadata={
+            "help": "Use the default prompt templates for embeddings",
+            "cli_name": "prompt-templates",
+        },
+    )
 
     # Template to index documents for retrieval, use `{title}` with the title or the string `"none"`
-    prompt_template_retrieval_document: str = "title: {title} | text: {content}"
-    prompt_template_retrieval_query: str = 'title: "none" | text: {content}'
+    prompt_template_retrieval_document: str = field(
+        default="title: {title} | text: {content}",
+        metadata={"help": "Template applied to documents before indexing"},
+    )
+    prompt_template_retrieval_query: str = field(
+        default='title: "none" | text: {content}',
+        metadata={"help": "Template applied to the query prior to retrieval"},
+    )
 
     #
     # Index settings
     #
 
     # Maximum size of a document to process (in bytes)
-    max_document_size_bytes: int = 5 * 1024 * 1024  # 5 MB
+    max_document_size_bytes: int = field(
+        default=5 * 1024 * 1024,
+        metadata={"help": "Maximum size (in bytes) of a document before truncation"},
+    )  # 5 MB
     # Zero means no limit
-    max_chunks_per_document: int = 1000
+    max_chunks_per_document: int = field(
+        default=1000,
+        metadata={
+            "help": "Maximum number of chunks generated per document (0 = unlimited)"
+        },
+    )
     # Number of top sentences to return per document
-    top_k_sentences: int = 10
+    top_k_sentences: int = field(
+        default=5,
+        metadata={"help": "Top sentences per document returned in retrieval results"},
+    )
 
     #
     # Text generation
     #
 
-    # gen_model_path: str = (
-    #     "./models/unsloth/gemma-3-270m-it-GGUF/gemma-3-270m-it-Q8_0.gguf"
+    # model_path_text_gen: str = field(
+    #     default="./models/unsloth/gemma-3-270m-it-GGUF/gemma-3-270m-it-Q8_0.gguf",
+    #     metadata={"help": "Path to the text generation model file (.gguf)"},
     # )
-    gen_model_path: str = "./models/unsloth/gemma-3-1b-it-GGUF/gemma-3-1b-it-Q8_0.gguf"
-
-    # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text
-    other_gen_model_options: str = ""
-    # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createoptions-text
-    other_gen_context_options: str = (
-        "n_ctx=6000,context_size=6000,max_tokens=3000,n_threads=8,n_predict=800"
+    model_path_text_gen: str = field(
+        default="./models/unsloth/gemma-3-1b-it-GGUF/gemma-3-1b-it-Q8_0.gguf",
+        metadata={"help": "Path to the text generation model file (.gguf)"},
     )
 
-    context_size: int = 2048
+    # Model parameters
+    temp: float = field(
+        default=1.0,
+        metadata={"help": "Temperature for text generation"},
+    )
+    top_k: int = field(
+        default=64,
+        metadata={"help": "Top-K sampling value for text generation"},
+    )
+    top_p: float = field(
+        default=0.95,
+        metadata={"help": "Top-P (nucleus) sampling value for generation"},
+    )
+    top_p_min_keep: int = field(
+        default=1,
+        metadata={"help": "Minimum tokens kept when applying top-p sampling"},
+    )
+    min_p: float = field(
+        default=0.0,
+        metadata={"help": "Minimum probability threshold for min-p sampling"},
+    )
+    min_p_min_keep: int = field(
+        default=1,
+        metadata={"help": "Minimum tokens kept when applying min-p sampling"},
+    )
+    penaltiy_n_tokens: int = field(
+        default=1024,
+        metadata={"help": "Number of tokens considered for repetition penalties"},
+    )
+    penalty_repeat: float = field(
+        default=1.1,
+        metadata={"help": "Repeat penalty value"},
+    )
+    penalty_frequency: float = field(
+        default=0.0,
+        metadata={"help": "Frequency penalty applied during generation"},
+    )
+    penalty_presence: float = field(
+        default=0.0,
+        metadata={"help": "Presence penalty applied during generation"},
+    )
+    random_seed: int = field(
+        default=-1,
+        metadata={"help": "Random seed used for generation (-1 for random)"},
+    )  # -1 means random seed
+
+    # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_model_loadpath-text-options-text
+    other_model_options_text_gen: str = field(
+        default="",
+        metadata={"help": "Additional options for the text generation model loader"},
+    )
+    # See: https://github.com/sqliteai/sqlite-ai/blob/main/API.md#llm_context_createoptions-text
+    other_context_options_text_gen: str = field(
+        default="",
+        metadata={"help": "Extra context creation parameters for text generation"},
+    )
+
+    # Max context size to feed the model for generation
+    context_size_text_gen: int = field(
+        default=32000,
+        metadata={"help": "Maximum context window passed to the generation model"},
+    )
     # Max input tokens to the model for generation
-    max_tokens: int = 2048
+    max_tokens: int = field(
+        default=32000,
+        metadata={"help": "Maximum tokens fed to the generation model"},
+    )
 
-    n_predict: int = 400
+    n_predict: int = field(
+        default=800,
+        metadata={"help": "Maximum number of tokens to predict in one call"},
+    )
 
-    def get_embeddings_context_options(self) -> str:
+    # Answers is generated from retrieved documents
+    # with RRF combined score below this threshold (0.0 best)
+    results_threshold: float = field(
+        default=0.020,
+        metadata={"help": "Minimum combined RRF score required for generated answers"},
+    )
+
+    def get_context_options_embedding(self) -> str:
         """Get the context options for embeddings generation."""
         options = {
             "n_ctx": self.chunk_size,
@@ -116,17 +266,18 @@ class Settings:
             else ""
         )
 
-    def get_generation_context_options(self) -> str:
+    def get_context_options_text_generation(self) -> str:
         """Get the context options for text generation."""
         options = {
-            "context_size": self.context_size,
+            "n_ctx": self.context_size_text_gen,
+            "context_size": self.context_size_text_gen,
             "max_tokens": self.max_tokens,
             "n_predict": self.n_predict,
         }
 
         return ",".join(f"{k}={v}" for k, v in options.items()) + (
-            f",{self.other_gen_context_options}"
-            if self.other_gen_context_options
+            f",{self.other_context_options_text_gen}"
+            if self.other_context_options_text_gen
             else ""
         )
 
