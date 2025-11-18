@@ -101,11 +101,11 @@ class Settings:
 
     # Weights for combining FTS and vector search results
     weight_fts: float = field(
-        default=1.5,
+        default=1.0,
         metadata={"help": "Weight applied to full text search scores"},
     )
     weight_vec: float = field(
-        default=1.0,
+        default=1.5,
         metadata={"help": "Weight applied to vector similarity scores"},
     )
 

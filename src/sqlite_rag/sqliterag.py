@@ -339,6 +339,10 @@ class SQLiteRag:
         """Clean up quantization structures"""
         self._engine.quantize_cleanup()
 
+    def context_used(self) -> int:
+        """Get the percentage of the current context used."""
+        return self._engine.context_used()
+
     def close(self) -> None:
         """Free up resources"""
         self._embedding_model.unload()

@@ -461,7 +461,7 @@ def ask(
     stats_line = f"{elapsed_time:.3f} seconds"
     if token_count > 0 and elapsed_time > 0:
         tokens_per_sec = token_count / elapsed_time
-        stats_line = f"{stats_line} ({token_count} tokens, {tokens_per_sec:.2f} tok/s)"
+        stats_line = f"{stats_line} ({token_count} tokens, {tokens_per_sec:.2f} tok/s, usage: {rag.context_used()} tokens)"
     typer.echo(stats_line)
 
 

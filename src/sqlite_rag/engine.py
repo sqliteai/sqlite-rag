@@ -101,6 +101,13 @@ class Engine:
 
         conn.commit()
 
+    def context_used(self) -> int:
+        """Get the percentage of the current context used."""
+        cursor = self._text_generation_model.ensure_loaded().cursor()
+
+        cursor.execute("SELECT llm_context_used();")
+        return cursor.fetchone()[0]
+
     def free_context(self) -> None:
         """Release resources associated with the current context."""
         cursor = self._embedding_model.ensure_loaded().cursor()
@@ -313,7 +320,7 @@ class Engine:
 
     def ask(self, query: str) -> sqlite3.Cursor:
         """Generate an answer to the query using the LLM."""
-        results = self.search(query, top_k=3)
+        results = self.search(query, top_k=10)
 
         context = ""
         for result in results:
@@ -323,7 +330,7 @@ class Engine:
             if result.combined_rank > self._settings.results_threshold:
                 self._logger.debug("\r\b - taken")
                 # TODO: how to improve context limit?
-                preview = result.document.content[:5000].replace("\n", "\\n")
+                preview = result.document.content[:5000]
                 context += f"{preview}\n\n"
 
         prompt = query
@@ -331,8 +338,7 @@ class Engine:
             # prompt = f"""You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say you that don't know. Use three sentences maximum and keep the answer coincise.
             # prompt = prompt = f"""Answer the question based only on the following documents. Answer with the summary of the documents provided. Do **NOT** include any introductory phrases, titles, or prefixes such as "Answer:", "The answer is:", "Final Answer:", or "Based on the context,". Start your response with the answer itself:"""
             prompt = f"""Answer the question based on the following documents.
-Answer with the summary of the documents provided.
-Do **NOT** include any introductory phrases, titles, or prefixes such as "Answer:", "The answer is:", "Final Answer:", or "Based on the context,". Start your response with the answer itself:
+Do **NOT** include any introductory phrases, titles, or prefixes such as "The documents explain", "Answer:", "The answer is:", "Final Answer:", or "Based on the context,". Start your response with the answer itself:
 
 {context}
 
