@@ -1,4 +1,4 @@
-"""MCP Server for SQLite RAG integration with Continue"""
+"""MCP Server for SQLite RAG integration"""
 import asyncio
 import json
 import sys
@@ -19,7 +19,56 @@ class SQLiteRagMCP:
 
     def _setup_tools(self):
         """Register all available tools"""
-        
+
+        @self.app.tool()
+        async def add_directory(
+                path: str,
+                recursive: bool = True,
+                use_relative_paths: bool = False,
+                metadata: Optional[str] = None,
+                only_extensions: Optional[str] = None,
+                exclude_extensions: Optional[str] = None
+        ):
+            """Add all files from a directory into the database.
+
+            Args:
+                path: Directory path to add files from
+                recursive: Whether to process subdirectories recursively
+                use_relative_paths: Store relative paths instead of absolute paths
+                metadata: JSON string of metadata to associate with documents
+                only_extensions: Comma-separated list of file extensions to include (e.g. 'py,js,md')
+                exclude_extensions: Comma-separated list of file extensions to exclude (e.g. 'pyc,txt')
+            """
+            try:
+                rag = SQLiteRag.create(self.db_path)
+
+                parsed_metadata = json.loads(metadata) if metadata else {}
+
+                parsed_only_extensions = None
+                if only_extensions:
+                    parsed_only_extensions = [ext.strip() for ext in only_extensions.split(',')]
+
+                parsed_exclude_extensions = None
+                if exclude_extensions:
+                    parsed_exclude_extensions = [ext.strip() for ext in exclude_extensions.split(',')]
+
+                processed_count = rag.add(
+                    path,
+                    recursive=recursive,
+                    use_relative_paths=use_relative_paths,
+                    metadata=parsed_metadata,
+                    only_extensions=parsed_only_extensions,
+                    exclude_extensions=parsed_exclude_extensions
+                )
+
+                return TextContent(
+                    type="text",
+                    text=f"Successfully processed {processed_count} files from directory: {path}"
+                )
+            except Exception as e:
+                return TextContent(type="text", text=f"Error adding directory: {str(e)}")
+
+
         @self.app.tool()
         async def search(query: str, limit: int = 5):
             """Search for documents using hybrid vector + full-text search."""

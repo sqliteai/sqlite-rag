@@ -18,7 +18,7 @@ SQLite RAG combines vector similarity search with full-text search ([FTS5](https
 - **Recursive Character Text Splitter**: Token-aware text chunking with configurable overlap
 - **Interactive CLI**: Command-line interface with interactive REPL mode
 - **Flexible Configuration**: Customizable embedding models, search weights, and chunking parameters
-- **Continue Integration**: MCP server for seamless integration with VS Code Continue extension
+- **MCP server**: MCP server for integration with extensions
 
 ## Installation
 
@@ -32,7 +32,7 @@ If you encounter extension loading issues (e.g., `'sqlite3.Connection' object ha
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install sqlite-rag
+pip install sqlite-rag # for install local dev sqlite-rag version: pip install ../sqlite-rag
 ```
 
 ## Quick Start
@@ -120,9 +120,9 @@ You can customize the list of supported file extensions using the `--supported-e
 sqlite-rag configure --supported-extensions "py,js,c4"
 ```
 
-## Continue Integration
+## MCP server
 
-SQLite RAG includes an MCP (Model Context Protocol) server for seamless integration with [VS Code Continue](https://docs.continue.dev/) extension. This allows you to use your SQLite RAG database directly in the Continue chat and agent modes.
+SQLite RAG includes an MCP (Model Context Protocol) server for integration with extensions. This allows you to use your SQLite RAG database directly in the AI chat and agent modes.
 
 ### Installation
 
@@ -131,12 +131,16 @@ Install SQLite RAG with MCP support:
 ```bash
 pip install sqlite-rag[mcp]
 ```
+To work with multiple projects simultaneously, you should install `sqlite-rag` into your global Python environment. The CLI is run as follows:
+```bash
+python -m sqlite_rag.cli 
+``` 
 
 ### Configuration
 
 1. First, set up your SQLite RAG database and add documents as described in the Quick Start section.
 
-2. Create or edit your Continue configuration file `.continue/config.json` in your home directory:
+2. Create or edit your extension configuration file:
 
 ```json
 {
@@ -145,12 +149,20 @@ pip install sqlite-rag[mcp]
       "command": "python",
       "args": [
         "-m", "sqlite_rag.mcp_server",
-        "/path/to/your/sqliterag.sqlite"
+        "./sqliterag.sqlite"
       ],
       "env": {}
     }
   }
 }
+
+```
+  - name: sqlite-rag
+    command: python
+    args:
+      - "-m"
+      - "sqlite_rag.mcp_server"
+      - "./sqliterag.sqlite"
 ```
 
 Replace `/path/to/your/sqliterag.sqlite` with the actual path to your SQLite RAG database file.
@@ -159,7 +171,7 @@ Replace `/path/to/your/sqliterag.sqlite` with the actual path to your SQLite RAG
 
 ### Available Tools
 
-Once configured, the following tools will be available in Continue:
+Once configured, the following tools will be available:
 
 - **`search`**: Search your documents using hybrid vector + full-text search
   - `query` (string): The search query
@@ -177,16 +189,15 @@ Once configured, the following tools will be available in Continue:
 
 - **`get_settings`**: Get current configuration settings of the RAG system
 
-### Usage in Continue
+### Usage in AI chat
 
 After setup, you can use commands like:
 
 ```sql
--- In Continue chat or agent mode
 Search for documents about machine learning with limit 10
 ```
 
-or let Continue automatically use the search tool when you ask questions related to your indexed documents.
+or let AI automatically use the search tool when you ask questions related to your indexed documents.
 
 ## Development
 
