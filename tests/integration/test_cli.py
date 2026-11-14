@@ -1,3 +1,4 @@
+import os
 import tempfile
 from pathlib import Path
 
@@ -5,6 +6,25 @@ from typer.testing import CliRunner
 
 from sqlite_rag.cli import app
 from sqlite_rag.settings import Settings
+
+
+def _tmp_db_path():
+    """Create a temp db file path that works on Windows.
+
+    NamedTemporaryFile keeps the file handle open which on Windows
+    prevents sqlite3 from opening it in a separate process (CliRunner).
+    """
+    tmp = tempfile.NamedTemporaryFile(suffix=".tempdb", delete=False)
+    path = tmp.name
+    tmp.close()
+    return path
+
+
+def _cleanup_db(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
 
 
 class TestCLI:
@@ -15,8 +35,8 @@ class TestCLI:
             "How much wood would a woodchuck chuck if a woodchuck could chuck wood?"
         )
 
-        with tempfile.NamedTemporaryFile(suffix=".tempdb") as tmp_db:
-
+        tmp_db_path = _tmp_db_path()
+        try:
             runner = CliRunner()
 
             model_path = Path(Settings().model_path).absolute()
@@ -25,7 +45,7 @@ class TestCLI:
                 app,
                 [
                     "--database",
-                    tmp_db.name,
+                    tmp_db_path,
                     "configure",
                     "--model-path",
                     str(model_path),
@@ -41,7 +61,7 @@ class TestCLI:
                 app,
                 [
                     "--database",
-                    tmp_db.name,
+                    tmp_db_path,
                     "add-text",
                     doc1_content,
                 ],
@@ -52,7 +72,7 @@ class TestCLI:
                 app,
                 [
                     "--database",
-                    tmp_db.name,
+                    tmp_db_path,
                     "add-text",
                     doc2_content,
                 ],
@@ -64,7 +84,7 @@ class TestCLI:
                 app,
                 [
                     "--database",
-                    tmp_db.name,
+                    tmp_db_path,
                     "search",
                     doc1_content,
                     "--debug",
@@ -78,9 +98,12 @@ class TestCLI:
             assert "Search Results (1 matches)" in result.stdout
             # For exact match with cosine distance, we expect distance close to 0.0
             assert "Vector: 0.000000" in result.stdout or "0.00000" in result.stdout
+        finally:
+            _cleanup_db(tmp_db_path)
 
     def test_set_settings(self):
-        with tempfile.NamedTemporaryFile(suffix=".tempdb") as tmp_db:
+        tmp_db_path = _tmp_db_path()
+        try:
             runner = CliRunner()
 
             model_path = "mypath/mymodel.gguf"
@@ -89,7 +112,7 @@ class TestCLI:
                 app,
                 [
                     "--database",
-                    tmp_db.name,
+                    tmp_db_path,
                     "configure",
                     "--model-path",
                     model_path,
@@ -101,18 +124,24 @@ class TestCLI:
 
             assert f"model_path: {model_path}" in result.stdout
             assert "other_vector_options: distance=L2" in result.stdout
+        finally:
+            _cleanup_db(tmp_db_path)
 
     def test_change_database_path(self):
-        with tempfile.NamedTemporaryFile(suffix=".tempdb") as tmp_db:
+        tmp_db_path = _tmp_db_path()
+        try:
             runner = CliRunner()
 
             result = runner.invoke(
                 app,
-                ["--database", tmp_db.name, "settings"],
+                ["--database", tmp_db_path, "settings"],
             )
             assert result.exit_code == 0
 
-            assert f"Database: {tmp_db.name}" in result.stdout
+            assert "Database:" in result.stdout
+            assert Path(tmp_db_path).name in result.stdout
+        finally:
+            _cleanup_db(tmp_db_path)
 
     def test_add_with_exclude_extensions(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -121,12 +150,13 @@ class TestCLI:
             (Path(tmp_dir) / "file3.py").write_text("print('Hello, world!')")
             (Path(tmp_dir) / "file4.js").write_text("console.log('Hello, world!');")
 
-            with tempfile.NamedTemporaryFile(suffix=".tempdb") as tmp_db:
+            tmp_db_path = _tmp_db_path()
+            try:
                 runner = CliRunner()
 
                 result = runner.invoke(
                     app,
-                    ["--database", tmp_db.name, "add", tmp_dir, "--exclude", "py,js"],
+                    ["--database", tmp_db_path, "add", tmp_dir, "--exclude", "py,js"],
                 )
                 assert result.exit_code == 0
 
@@ -136,6 +166,8 @@ class TestCLI:
                 assert "file2.md" in result.stdout
                 assert "file3.py" not in result.stdout
                 assert "file4.js" not in result.stdout
+            finally:
+                _cleanup_db(tmp_db_path)
 
     def test_add_with_only_extensions(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -144,14 +176,15 @@ class TestCLI:
             (Path(tmp_dir) / "file3.py").write_text("print('Hello, world!')")
             (Path(tmp_dir) / "file4.js").write_text("console.log('Hello, world!');")
 
-            with tempfile.NamedTemporaryFile(suffix=".tempdb") as tmp_db:
+            tmp_db_path = _tmp_db_path()
+            try:
                 runner = CliRunner()
 
                 result = runner.invoke(
                     app,
                     [
                         "--database",
-                        tmp_db.name,
+                        tmp_db_path,
                         "add",
                         tmp_dir,
                         "--only",
@@ -166,6 +199,8 @@ class TestCLI:
                 assert "file2.md" in result.stdout
                 assert "file3.py" not in result.stdout
                 assert "file4.js" not in result.stdout
+            finally:
+                _cleanup_db(tmp_db_path)
 
     def test_add_with_only_and_exclude_extensions_are_normilized(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -173,14 +208,15 @@ class TestCLI:
             (Path(tmp_dir) / "file2.md").write_text("# This is a markdown file.")
             (Path(tmp_dir) / "file3.py").write_text("print('Hello, world!')")
 
-            with tempfile.NamedTemporaryFile(suffix=".tempdb") as tmp_db:
+            tmp_db_path = _tmp_db_path()
+            try:
                 runner = CliRunner()
 
                 result = runner.invoke(
                     app,
                     [
                         "--database",
-                        tmp_db.name,
+                        tmp_db_path,
                         "add",
                         tmp_dir,
                         "--only",
@@ -196,3 +232,5 @@ class TestCLI:
                 assert "file1.txt" in result.stdout
                 assert "file2.md" in result.stdout
                 assert "file3.py" not in result.stdout
+            finally:
+                _cleanup_db(tmp_db_path)

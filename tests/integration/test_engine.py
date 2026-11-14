@@ -83,7 +83,8 @@ class TestEngineSearch:
 
 class TestEngineSearchDocuments:
     def test_search_with_empty_database(self, engine: Engine):
-        results = engine.search_documents(b"132456", "myquery", top_k=5)
+        embedding = engine.generate_embedding("myquery")
+        results = engine.search_documents(embedding, "myquery", top_k=5)
 
         assert len(results) == 0
 

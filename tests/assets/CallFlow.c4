@@ -1,0 +1,138 @@
+views {
+  dynamic view Call {
+    title "Use Cases / Отправка Push"
+    description "Отправка Push"
+
+    include mobileApp
+
+    exchange .httpsCall notifier {
+      title "Отправка Push"
+      notes """
+            api/v1/push
+            """
+    }
+    par {
+      notifier -> mobileApp "Push"
+      notifier
+        -> mobileApp "Push"
+        .httpsCall domestic {
+          title "Запрос сессии"
+          notes """
+                Get /session/
+                - SessionToken
+                - UserID
+            """
+        }
+      notifier
+        -> mobileApp "Push"
+        .httpsCall domestic {
+          title "Запрос сессии"
+          notes """
+                Get /session/
+                - SessionToken
+                - UserID
+            """
+        }
+    }
+    domestic -> redisDb {
+      title "Get Session"
+      notes """
+                - sessionID = Token(UUID)_ID
+            """
+    }
+    redisDb -> domestic {
+      title "Данные сессии"
+    }
+    domestic -> mobileApp {
+      title "Данные сессии"
+      notes """
+                    - Device: UserDevice
+                    - Timestamp:s.Timestamp.UTC()
+            """
+    }
+    domestic -> mobileApp {
+      title "Данные сессии"
+      notes """
+                    - Device: UserDevice
+                    - Timestamp:s.Timestamp.UTC()
+            """
+    }
+    gateway -> asterisk {
+      title "Присоединение к групповому звонку"
+      notes """
+                    Balancing
+                    - Live Node Based
+                    - Host Name Based
+              """
+    }
+    mobileApp .webSocket asterisk {
+      title "Присоединение к групповому звонку по Websocket"
+      notes """
+                    Balancing
+                    - Live Node Based
+                    - Host Name Based
+              """
+    }
+
+
+
+
+
+  }
+
+  dynamic view DeleteAccount {
+    title "Use Cases / Удаление аккаунта"
+    description "Удаление аккаунта"
+
+    deleteAccount
+      .consume service {
+        title "Задача на удаление аккаунта"
+      }
+    service -> asterisk {
+      title "Account Prune"
+    }
+
+  }
+
+  dynamic view RegAccount {
+    title "Use Cases / Регистрация аккаунта"
+    description "Регистрация аккаунта"
+
+    include intercom, gate, domestic
+
+    intercom
+      .Call gateway "AddAccounts"
+      .Call asterisk "AddAccounts"
+      .httpCall Adapter "AddAccounts"
+      -> asteriskDb "AddAccounts"
+
+    gate
+      .Call gateway "AddAccounts"
+      .Call asterisk "AddAccounts"
+      .httpCall Adapter "AddAccounts"
+      -> asteriskDb "AddAccounts"
+
+    domestic
+      -> domestic "Cоздание device"
+      .httpsCall Adapter "CreateAccounts
+/api/v1/account"
+      -> asteriskDb "AddAccounts"
+
+  }
+
+  dynamic view IVRCall {
+    title "Use Cases / Звонок IVR"
+    description "Звонок IVR"
+
+    tfopHandset
+      .Call gateway {
+        title "Звонок IVR"
+      }
+      .Call asterisk
+      .httpCall domestic {
+        title "Сценарий IVR
+          from, to
+        "
+      }
+  }
+}

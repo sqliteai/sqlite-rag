@@ -101,6 +101,7 @@ class SQLiteRag:
         files_to_process = FileReader.collect_files(
             Path(path),
             recursive=recursive,
+            settings=self._settings,
             only_extensions=only_extensions,
             exclude_extensions=exclude_extensions,
         )

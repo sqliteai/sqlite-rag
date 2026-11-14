@@ -18,6 +18,7 @@ SQLite RAG combines vector similarity search with full-text search ([FTS5](https
 - **Recursive Character Text Splitter**: Token-aware text chunking with configurable overlap
 - **Interactive CLI**: Command-line interface with interactive REPL mode
 - **Flexible Configuration**: Customizable embedding models, search weights, and chunking parameters
+- **MCP server**: MCP server for integration with extensions
 
 ## Installation
 
@@ -31,7 +32,7 @@ If you encounter extension loading issues (e.g., `'sqlite3.Connection' object ha
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install sqlite-rag
+pip install sqlite-rag # for install local dev sqlite-rag version: pip install ../sqlite-rag
 ```
 
 ## Quick Start
@@ -110,6 +111,94 @@ SQLite RAG supports the following file formats:
 - **Code**: `.c`, `.cpp`, `.css`, `.go`, `.h`, `.hpp`, `.html`, `.java`, `.js`, `.mjs`, `.kt`, `.php`, `.py`, `.rb`, `.rs`, `.swift`, `.ts`, `.tsx`
 - **Web Frameworks**: `.svelte`, `.vue`
 
+### Custom File Extensions
+
+You can customize the list of supported file extensions using the `--supported-extensions` option:
+
+```bash
+# Set the supported extensions list
+sqlite-rag configure --supported-extensions "py,js,c4"
+```
+
+## MCP server
+
+SQLite RAG includes an MCP (Model Context Protocol) server for integration with extensions. This allows you to use your SQLite RAG database directly in the AI chat and agent modes.
+
+### Installation
+
+Install SQLite RAG with MCP support:
+
+```bash
+pip install sqlite-rag[mcp]
+```
+To work with multiple projects simultaneously, you should install `sqlite-rag` into your global Python environment. The CLI is run as follows:
+```bash
+python -m sqlite_rag.cli 
+``` 
+
+### Configuration
+
+1. First, set up your SQLite RAG database and add documents as described in the Quick Start section.
+
+2. Create or edit your extension configuration file:
+
+```json
+{
+  "mcpServers": {
+    "sqlite-rag": {
+      "command": "python",
+      "args": [
+        "-m", "sqlite_rag.mcp_server",
+        "./sqliterag.sqlite"
+      ],
+      "env": {}
+    }
+  }
+}
+
+```
+  - name: sqlite-rag
+    command: python
+    args:
+      - "-m"
+      - "sqlite_rag.mcp_server"
+      - "./sqliterag.sqlite"
+```
+
+Replace `/path/to/your/sqliterag.sqlite` with the actual path to your SQLite RAG database file.
+
+3. Restart VS Code to load the MCP server.
+
+### Available Tools
+
+Once configured, the following tools will be available:
+
+- **`search`**: Search your documents using hybrid vector + full-text search
+  - `query` (string): The search query
+  - `limit` (number, optional): Number of results to return (default: 5)
+
+- **`add_text`**: Add text content to the RAG database
+  - `text` (string): The text content to add
+  - `uri` (string, optional): URI/path identifier for the text
+  - `metadata` (string, optional): Metadata in JSON format
+
+- **`list_documents`**: List all documents in the database
+
+- **`remove_document`**: Remove a document by ID or URI
+  - `identifier` (string): Document ID or URI to remove
+
+- **`get_settings`**: Get current configuration settings of the RAG system
+
+### Usage in AI chat
+
+After setup, you can use commands like:
+
+```sql
+Search for documents about machine learning with limit 10
+```
+
+or let AI automatically use the search tool when you ask questions related to your indexed documents.
+
 ## Development
 
 ### Installation
@@ -126,7 +215,7 @@ python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install in development mode
-pip install -e '.[dev]'
+pip install -e '.[dev,mcp]'
 ```
 ## How It Works
 

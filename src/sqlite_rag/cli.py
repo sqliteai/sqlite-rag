@@ -180,6 +180,10 @@ def configure_settings(
         None,
         help="Maximum number of chunks to generate per document (0 for no limit)",
     ),
+    supported_extensions: Optional[str] = typer.Option(
+        None,
+        help="Comma-separated list of supported file extensions (e.g. 'py,js,txt')",
+    ),
 ):
     """Configure settings for the RAG system.
 
@@ -211,6 +215,7 @@ def configure_settings(
         "prompt_template_retrieval_query": prompt_template_retrieval_query,
         "max_document_size_bytes": max_document_size_bytes,
         "max_chunks_per_document": max_chunks_per_document,
+        "supported_extensions": supported_extensions,
     }
     print(updates)
     # Filter out None values (unset options)

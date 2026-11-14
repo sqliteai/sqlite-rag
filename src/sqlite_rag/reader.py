@@ -41,8 +41,20 @@ class FileReader:
     ]
 
     @staticmethod
+    def _get_extensions_from_settings(settings):
+        """Get supported extensions from settings object."""
+        if settings and hasattr(settings, 'supported_extensions') and settings.supported_extensions:
+            return {
+                ext.strip().lstrip(".").lower()
+                for ext in settings.supported_extensions.split(",")
+                if ext.strip()
+            }
+        return set(FileReader.extensions)
+
+    @staticmethod
     def is_supported(
         path: Path,
+        settings=None,
         only_extensions: Optional[list[str]] = None,
         exclude_extensions: Optional[list[str]] = None,
     ) -> bool:
@@ -55,7 +67,8 @@ class FileReader:
         """
         extension = path.suffix.lower().lstrip(".")
 
-        supported_extensions = set(FileReader.extensions)
+        # Get base supported extensions from settings or defaults
+        supported_extensions = FileReader._get_extensions_from_settings(settings)
         exclude_set = set()
 
         # Only keep those that are in both lists
@@ -91,6 +104,7 @@ class FileReader:
     def collect_files(
         path: Path,
         recursive: bool = False,
+        settings=None,
         only_extensions: Optional[list[str]] = None,
         exclude_extensions: Optional[list[str]] = None,
     ) -> list[Path]:
@@ -99,7 +113,7 @@ class FileReader:
             raise FileNotFoundError(f"{path} does not exist.")
 
         if path.is_file() and FileReader.is_supported(
-            path, only_extensions, exclude_extensions
+            path, settings=settings, only_extensions=only_extensions, exclude_extensions=exclude_extensions
         ):
             return [path]
 
@@ -114,7 +128,9 @@ class FileReader:
                 f
                 for f in files_to_process
                 if f.is_file()
-                and FileReader.is_supported(f, only_extensions, exclude_extensions)
+                and FileReader.is_supported(
+                    f, settings=settings, only_extensions=only_extensions, exclude_extensions=exclude_extensions
+                )
             ]
 
         return files_to_process

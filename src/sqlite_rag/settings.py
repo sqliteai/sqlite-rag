@@ -78,6 +78,10 @@ class Settings:
     # Number of top sentences to return per document
     top_k_sentences: int = 3
 
+    # Comma-separated list of supported file extensions
+    # If empty, defaults are taken from FileReader.extensions
+    supported_extensions: str = ""
+
     def get_embeddings_context_options(self) -> str:
         """Get the context options for embeddings generation."""
         options = {

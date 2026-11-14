@@ -28,7 +28,8 @@ dependencies = [
     "python-frontmatter",
     "prompt-toolkit",
     "sqlite-ai",
-    "sqliteai-vector"
+    "sqliteai-vector",
+    "mcp>=1.0.0"
 ]
 
 [project.optional-dependencies]
@@ -47,6 +48,9 @@ dev = [
     "twine",
     "build",
 ]
+mcp = [
+    "mcp>=1.0.0"
+]
 
 [project.urls]
 Homepage = "https://sqlite.ai"
@@ -55,6 +59,7 @@ Issues = "https://github.com/sqliteai/sqlite-rag/issues"
 
 [project.scripts]
 sqlite-rag = "sqlite_rag.cli:cli"
+sqlite-rag-mcp = "sqlite_rag.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
