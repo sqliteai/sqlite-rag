@@ -3,43 +3,10 @@ from typing import Optional
 
 from markitdown import MarkItDown, StreamInfo
 
+from sqlite_rag.settings import DEFAULT_SUPPORTED_EXTENSIONS
+
 
 class FileReader:
-    extensions = [
-        "c",
-        "cpp",
-        "css",
-        "csv",
-        "docx",
-        "go",
-        "h",
-        "hpp",
-        "html",
-        "java",
-        "js",
-        "json",
-        "kt",
-        "md",
-        "mdx",
-        "mjs",
-        "pdf",
-        "php",
-        "pptx",
-        "py",
-        "rb",
-        "rs",
-        "svelte",
-        "swift",
-        "ts",
-        "tsx",
-        "txt",
-        "vue",
-        "xml",
-        "xlsx",
-        "yaml",
-        "yml",
-    ]
-
     @staticmethod
     def _get_extensions_from_settings(settings):
         """Get supported extensions from settings object."""
@@ -49,7 +16,7 @@ class FileReader:
                 for ext in settings.supported_extensions.split(",")
                 if ext.strip()
             }
-        return set(FileReader.extensions)
+        return set(DEFAULT_SUPPORTED_EXTENSIONS)
 
     @staticmethod
     def is_supported(

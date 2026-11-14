@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 
 from sqlite_rag.reader import FileReader
+from sqlite_rag.settings import DEFAULT_SUPPORTED_EXTENSIONS
 
 
 class TestFileReader:
@@ -64,7 +65,7 @@ class TestFileReader:
     def test_is_supported(self):
         unsupported_extensions = ["exe", "bin", "jpg", "png"]
 
-        for ext in FileReader.extensions:
+        for ext in DEFAULT_SUPPORTED_EXTENSIONS:
             assert FileReader.is_supported(Path(f"test.{ext}"))
 
         for ext in unsupported_extensions:

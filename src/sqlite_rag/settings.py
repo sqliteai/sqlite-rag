@@ -3,6 +3,42 @@ import sqlite3
 from dataclasses import asdict, dataclass, fields, replace
 from typing import Any, Optional
 
+# Default supported file extensions
+DEFAULT_SUPPORTED_EXTENSIONS = [
+    "c",
+    "cpp",
+    "css",
+    "csv",
+    "docx",
+    "go",
+    "h",
+    "hpp",
+    "html",
+    "java",
+    "js",
+    "json",
+    "kt",
+    "md",
+    "mdx",
+    "mjs",
+    "pdf",
+    "php",
+    "pptx",
+    "py",
+    "rb",
+    "rs",
+    "svelte",
+    "swift",
+    "ts",
+    "tsx",
+    "txt",
+    "vue",
+    "xml",
+    "xlsx",
+    "yaml",
+    "yml",
+]
+
 
 @dataclass
 class Settings:
@@ -79,8 +115,8 @@ class Settings:
     top_k_sentences: int = 3
 
     # Comma-separated list of supported file extensions
-    # If empty, defaults are taken from FileReader.extensions
-    supported_extensions: str = ""
+    # If empty, defaults are taken from DEFAULT_SUPPORTED_EXTENSIONS
+    supported_extensions: str = ",".join(DEFAULT_SUPPORTED_EXTENSIONS)
 
     def get_embeddings_context_options(self) -> str:
         """Get the context options for embeddings generation."""

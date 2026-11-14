@@ -4,21 +4,21 @@ from pathlib import Path
 import pytest
 
 from sqlite_rag.reader import FileReader
-from sqlite_rag.settings import Settings
+from sqlite_rag.settings import Settings, DEFAULT_SUPPORTED_EXTENSIONS
 
 
 class TestCustomFileExtensions:
     """Tests for custom file extensions support"""
 
     def test_default_extensions_fallback(self):
-        """Test that FileReader uses its own default list when settings is empty"""
-        # Empty settings should fallback to FileReader.extensions
+        """Test that FileReader uses DEFAULT_SUPPORTED_EXTENSIONS when settings is empty"""
+        # Empty settings should fallback to DEFAULT_SUPPORTED_EXTENSIONS
         empty_settings = Settings(supported_extensions="")
         
-        # .py is in default FileReader.extensions
+        # .py is in DEFAULT_SUPPORTED_EXTENSIONS
         assert FileReader.is_supported(Path("test.py"), settings=empty_settings)
         
-        # .c4 is NOT in default FileReader.extensions
+        # .c4 is NOT in DEFAULT_SUPPORTED_EXTENSIONS
         assert not FileReader.is_supported(Path("test.c4"), settings=empty_settings)
 
     def test_custom_extensions_override(self):
@@ -86,9 +86,9 @@ class TestCustomFileExtensions:
             assert len(files) == 1
             assert (temp_path / "test.c4") in files
 
-    def test_settings_none_fallback_to_file_reader_defaults(self):
-        """Test that None settings falls back to FileReader.extensions"""
-        # When settings is None, should use FileReader.extensions
+    def test_settings_none_fallback_to_default_extensions(self):
+        """Test that None settings falls back to DEFAULT_SUPPORTED_EXTENSIONS"""
+        # When settings is None, should use DEFAULT_SUPPORTED_EXTENSIONS
         assert FileReader.is_supported(Path("test.py"), settings=None)
         assert FileReader.is_supported(Path("test.txt"), settings=None)
         assert FileReader.is_supported(Path("test.md"), settings=None)
